@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>職場煉獄 · Office Roguelike</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <link rel="stylesheet" href="css/battle.css" />
+  <link rel="stylesheet" href="css/map.css" />
+  <link rel="stylesheet" href="css/ui.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Screens injected by JS -->
+    <div id="screen-title"   class="screen active"></div>
+    <div id="screen-map"     class="screen"></div>
+    <div id="screen-shop"    class="screen"></div>
+    <div id="screen-battle"  class="screen"></div>
+    <div id="screen-upgrade" class="screen"></div>
+    <div id="screen-gameover"class="screen"></div>
+  </div>
+
+  <!-- Data -->
+  <script src="js/data/cards.js"></script>
+  <script src="js/data/events.js"></script>
+  <script src="js/data/enemies.js"></script>
+
+  <!-- Core systems -->
+  <script src="js/core/state.js"></script>
+  <script src="js/core/status.js"></script>
+  <script src="js/core/battle.js"></script>
+  <script src="js/core/map.js"></script>
+  <script src="js/core/shop.js"></script>
+
+  <!-- UI renderers -->
+  <script src="js/ui/terminal.js"></script>
+  <script src="js/ui/screenTitle.js"></script>
+  <script src="js/ui/screenMap.js"></script>
+  <script src="js/ui/screenShop.js"></script>
+  <script src="js/ui/screenBattle.js"></script>
+  <script src="js/ui/screenUpgrade.js"></script>
+  <script src="js/ui/screenGameover.js"></script>
+  <script src="js/ui/bagPanel.js"></script>
+  <script src="js/ui/cardTooltip.js"></script>
+
+  <!-- Boot -->
+  <script src="js/core/main.js"></script>
+</body>
+</html>

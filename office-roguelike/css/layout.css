@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════
+   LAYOUT.CSS  —  screen system & main layout
+═══════════════════════════════════════ */
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.screen.active { display: flex; }
+
+/* ── Title Screen ── */
+#screen-title {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-xl);
+}
+
+/* ── Map Screen ── */
+#screen-map {
+  flex-direction: row;
+  gap: var(--gap-md);
+  padding: var(--gap-md);
+}
+
+#map-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  overflow: hidden;
+}
+
+#map-sidebar {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+  overflow-y: auto;
+}
+
+/* ── Shop Screen ── */
+#screen-shop {
+  flex-direction: row;
+  gap: var(--gap-md);
+  padding: var(--gap-md);
+}
+
+#shop-inventory {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+#shop-sidebar {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+/* ── Battle Screen ── */
+#screen-battle {
+  flex-direction: column;
+  padding: var(--gap-md);
+  gap: var(--gap-md);
+}
+
+#battle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--gap-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+#battle-arena {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 80px 1fr;
+  gap: var(--gap-md);
+  overflow: hidden;
+}
+
+#battle-log-wrap {
+  height: 120px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding-top: var(--gap-sm);
+}
+
+/* ── Upgrade Screen ── */
+#screen-upgrade {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-xl);
+}
+
+/* ── Gameover Screen ── */
+#screen-gameover {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-xl);
+}
+
+/* ── Common: player stat bar ── */
+#player-statbar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-lg);
+  padding: var(--gap-sm) var(--gap-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+}
+
+#player-statbar .stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-xs);
+}
+
+#player-statbar .stat-label {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+#player-statbar .stat-val {
+  color: var(--green-bright);
+  font-family: var(--font-display);
+  font-size: 16px;
+}

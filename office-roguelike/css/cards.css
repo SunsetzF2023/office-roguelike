@@ -1,0 +1,259 @@
+/* ═══════════════════════════════════════
+   CARDS.CSS  —  bag grid & card visuals
+═══════════════════════════════════════ */
+
+/* ── Bag Grid (2 rows × 6 cols) ── */
+.bag-grid {
+  display: grid;
+  grid-template-columns: repeat(6, var(--cell));
+  grid-template-rows: repeat(2, var(--cell));
+  gap: var(--cell-gap);
+  padding: var(--gap-sm);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: fit-content;
+}
+
+.bag-cell {
+  width: var(--cell);
+  height: var(--cell);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.bag-cell.occupied { border-color: transparent; }
+.bag-cell.droptarget {
+  border-color: var(--green);
+  box-shadow: 0 0 8px var(--green-dim);
+  background: var(--bg-select);
+}
+.bag-cell.invalid {
+  border-color: var(--red-dim);
+  background: rgba(229,57,53,0.05);
+}
+
+/* ── Card chip (lives inside bag-cell, spans cols) ── */
+.card-chip {
+  position: absolute;
+  top: 0; left: 0;
+  height: var(--cell);
+  background: var(--bg-card);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--radius);
+  cursor: grab;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 5px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  z-index: 2;
+}
+
+/* Widths by size */
+.card-chip.size-1 { width: var(--cell); }
+.card-chip.size-2 { width: calc(var(--cell)*2 + var(--cell-gap)); }
+.card-chip.size-3 { width: calc(var(--cell)*3 + var(--cell-gap)*2); }
+
+.card-chip:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 10px var(--green-dim);
+  z-index: 10;
+}
+.card-chip.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.card-chip.selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px rgba(255,179,0,0.3);
+}
+
+/* Type colour stripe on left edge */
+.card-chip::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+.card-chip.type-poison::before  { background: var(--poison); }
+.card-chip.type-fire::before    { background: var(--fire); }
+.card-chip.type-shield::before  { background: var(--shield); }
+.card-chip.type-heal::before    { background: var(--heal); }
+.card-chip.type-speed::before   { background: var(--green-bright); }
+.card-chip.type-damage::before  { background: var(--amber); }
+.card-chip.type-ice::before     { background: var(--ice); }
+.card-chip.type-buff::before    { background: var(--purple); }
+
+.card-name {
+  font-size: 9px;
+  color: var(--text-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.03em;
+  padding-left: 5px;
+}
+
+.card-size-badge {
+  font-size: 8px;
+  color: var(--text-dim);
+  align-self: flex-end;
+}
+
+/* CD progress arc shown as tiny bar at bottom */
+.card-cd-bar {
+  position: absolute;
+  bottom: 2px; left: 5px; right: 3px;
+  height: 2px;
+  background: var(--bg);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.card-cd-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 1px;
+  transition: width 0.1s linear;
+}
+.card-cd-fill.ready {
+  background: var(--green-bright);
+  box-shadow: 0 0 4px var(--green-bright);
+}
+
+/* ── Shop card listing ── */
+.shop-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-md);
+  padding: var(--gap-sm) var(--gap-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.shop-card-row:hover {
+  border-color: var(--green);
+  background: var(--bg-hover);
+}
+.shop-card-row.unaffordable {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.shop-card-preview {
+  width: 42px;
+  height: 42px;
+  background: var(--bg-card);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.shop-card-info { flex: 1; }
+.shop-card-name {
+  font-size: 13px;
+  color: var(--green-bright);
+  margin-bottom: 3px;
+}
+.shop-card-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.shop-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  margin-top: 4px;
+}
+.shop-card-cost {
+  color: var(--amber);
+  font-size: 12px;
+}
+.shop-card-size-tag {
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+/* ── Inventory / warehouse ── */
+.warehouse-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sm);
+  padding: var(--gap-sm);
+  min-height: 60px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ── Card tooltip ── */
+#card-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 240px;
+  background: var(--bg-panel);
+  border: 1px solid var(--green);
+  border-radius: var(--radius);
+  padding: var(--gap-sm) var(--gap-md);
+  pointer-events: none;
+  box-shadow: 0 0 16px rgba(76,175,80,0.15);
+  font-size: 12px;
+  line-height: 1.55;
+}
+#card-tooltip .tt-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--green-bright);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+#card-tooltip .tt-size {
+  font-size: 10px;
+  color: var(--text-dim);
+  float: right;
+}
+#card-tooltip .tt-lore {
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+#card-tooltip .tt-skill {
+  margin-bottom: 4px;
+}
+#card-tooltip .tt-skill-label {
+  color: var(--amber);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#card-tooltip .tt-keywords {
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+#card-tooltip .tt-keyword {
+  margin-bottom: 2px;
+}
+#card-tooltip .tt-keyword b {
+  color: var(--green);
+}

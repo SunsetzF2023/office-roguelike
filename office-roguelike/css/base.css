@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════
+   BASE.CSS  —  tokens & reset
+   Terminal green-on-black aesthetic
+═══════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+:root {
+  /* Palette */
+  --bg:          #0a0f0a;
+  --bg-panel:    #0d140d;
+  --bg-card:     #0f1a0f;
+  --bg-hover:    #162016;
+  --bg-select:   #1a2e1a;
+
+  --green-dim:   #2a5c2a;
+  --green-mid:   #3d8b3d;
+  --green:       #4caf50;
+  --green-bright:#76d275;
+  --green-glow:  #a5f5a3;
+
+  --amber:       #ffb300;
+  --red:         #e53935;
+  --red-dim:     #7b1a1a;
+  --blue:        #29b6f6;
+  --purple:      #ab47bc;
+  --poison:      #8bc34a;
+  --fire:        #ff7043;
+  --ice:         #80deea;
+  --shield:      #90caf9;
+  --heal:        #66bb6a;
+
+  --text:        #c8e6c9;
+  --text-dim:    #558b57;
+  --text-bright: #e8f5e9;
+  --text-label:  #81c784;
+  --border:      #1e3a1e;
+  --border-bright:#2e5a2e;
+  --scanline:    rgba(0,0,0,0.12);
+
+  /* Typography */
+  --font-mono:   'Share Tech Mono', 'Courier New', monospace;
+  --font-display:'VT323', monospace;
+
+  /* Spacing */
+  --gap-xs: 4px;
+  --gap-sm: 8px;
+  --gap-md: 14px;
+  --gap-lg: 20px;
+  --gap-xl: 32px;
+
+  /* Card cell size */
+  --cell: 52px;
+  --cell-gap: 4px;
+  --radius: 3px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* CRT scanline overlay */
+body::after {
+  content:'';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scanline) 0px,
+    var(--scanline) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 2px; }
+
+/* Utility */
+.hidden   { display: none !important; }
+.dim      { color: var(--text-dim); }
+.bright   { color: var(--text-bright); }
+.amber    { color: var(--amber); }
+.red      { color: var(--red); }
+.blue     { color: var(--blue); }
+.poison-c { color: var(--poison); }
+.fire-c   { color: var(--fire); }
+.ice-c    { color: var(--ice); }
+.shield-c { color: var(--shield); }
+.heal-c   { color: var(--heal); }
+.purple-c { color: var(--purple); }
+
+.blink { animation: blink 1.2s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.flicker { animation: flicker 0.15s linear; }
+@keyframes flicker {
+  0%  { opacity: 1; }
+  25% { opacity: 0.6; }
+  50% { opacity: 1; }
+  75% { opacity: 0.7; }
+  100%{ opacity: 1; }
+}
+
+/* Terminal text effect */
+.terminal-text { letter-spacing: 0.03em; }
+
+/* Glow effects */
+.glow-green { text-shadow: 0 0 8px var(--green), 0 0 20px var(--green-dim); }
+.glow-amber { text-shadow: 0 0 8px var(--amber); }
+.glow-red   { text-shadow: 0 0 8px var(--red); }
+
+/* Buttons */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  padding: 6px 16px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+  border-radius: var(--radius);
+}
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--green);
+  color: var(--green-bright);
+  box-shadow: 0 0 8px var(--green-dim);
+}
+.btn:active { transform: scale(0.97); }
+.btn.primary {
+  border-color: var(--green);
+  color: var(--green-bright);
+  box-shadow: 0 0 6px var(--green-dim);
+}
+.btn.danger {
+  border-color: var(--red-dim);
+  color: var(--red);
+}
+.btn.amber {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Panel box */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--gap-md);
+}
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--green-bright);
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--gap-xs);
+  margin-bottom: var(--gap-sm);
+}
+
+/* HP bar */
+.hp-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hp-bar-fill {
+  height: 100%;
+  background: var(--green);
+  transition: width 0.3s;
+  box-shadow: 0 0 6px var(--green-dim);
+}
+.hp-bar-fill.low   { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.hp-bar-fill.crit  { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}

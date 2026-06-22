@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════
+   BATTLE.CSS  —  combat arena
+═══════════════════════════════════════ */
+
+/* ── Combatant panel ── */
+.combatant-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  overflow-y: auto;
+}
+
+.combatant-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--green-bright);
+  letter-spacing: 0.08em;
+}
+.combatant-name.enemy { color: var(--red); }
+
+.combatant-hp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  font-size: 12px;
+}
+.combatant-hp-num {
+  font-family: var(--font-display);
+  font-size: 16px;
+  min-width: 70px;
+}
+.combatant-hp-num.enemy { color: var(--red); }
+
+/* Status badges row */
+.combatant-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 22px;
+}
+
+/* ── Battle bag display ── */
+.battle-bag {
+  margin-top: var(--gap-sm);
+}
+
+.battle-bag-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+/* Card in battle: shows CD ring and attack animation */
+.battle-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  font-size: 11px;
+  overflow: hidden;
+  transition: border-color 0.1s;
+}
+.battle-card.enemy-card { border-color: var(--red-dim); }
+
+.battle-card-name {
+  color: var(--text-label);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.battle-card-cd {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--green);
+}
+.battle-card-cd.ready  { color: var(--green-bright); animation: pulse-ready 0.6s ease-out; }
+.battle-card-cd.frozen { color: var(--ice); }
+
+@keyframes pulse-ready {
+  0%   { box-shadow: 0 0 0 0 rgba(118,210,117,0.6); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+
+.battle-card-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--bg);
+}
+.battle-card-bar-fill {
+  height: 100%;
+  background: var(--green);
+  transition: width 0.12s linear;
+}
+.battle-card-bar-fill.enemy { background: var(--red); }
+
+/* Attack / damage flash */
+.battle-card.attacking {
+  border-color: var(--amber);
+  box-shadow: 0 0 12px rgba(255,179,0,0.4);
+  animation: attack-flash 0.3s ease-out;
+}
+@keyframes attack-flash {
+  0%   { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* ── VS divider ── */
+#battle-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-sm);
+}
+
+#battle-vs-label {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--red);
+  text-shadow: 0 0 12px var(--red);
+  letter-spacing: 0.1em;
+}
+
+/* ── Damage popup ── */
+.dmg-popup {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: bold;
+  animation: dmg-float 1.2s ease-out forwards;
+  z-index: 100;
+  white-space: nowrap;
+}
+.dmg-popup.physical { color: var(--amber); }
+.dmg-popup.poison   { color: var(--poison); }
+.dmg-popup.fire     { color: var(--fire); }
+.dmg-popup.heal     { color: var(--heal); }
+.dmg-popup.shield   { color: var(--shield); }
+
+@keyframes dmg-float {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+
+/* ── Battle log ── */
+#battle-log {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+#battle-log .log-entry { padding: 1px 0; border-bottom: 1px solid var(--border); }
+#battle-log .log-entry:last-child { color: var(--text); }
+#battle-log .log-entry.log-dmg    { color: var(--amber); }
+#battle-log .log-entry.log-poison { color: var(--poison); }
+#battle-log .log-entry.log-fire   { color: var(--fire); }
+#battle-log .log-entry.log-heal   { color: var(--heal); }
+#battle-log .log-entry.log-status { color: var(--blue); }
+#battle-log .log-entry.log-win    { color: var(--green-bright); font-size: 13px; }
+#battle-log .log-entry.log-lose   { color: var(--red); font-size: 13px; }
+
+/* ── Speed multiplier control ── */
+#speed-ctrl {
+  display: flex;
+  gap: var(--gap-xs);
+  align-items: center;
+}
+#speed-ctrl .btn { padding: 4px 10px; font-size: 11px; }
+#speed-ctrl .btn.active {
+  background: var(--bg-select);
+  border-color: var(--green-bright);
+  color: var(--green-bright);
+}

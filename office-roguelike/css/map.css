@@ -1,0 +1,226 @@
+/* ═══════════════════════════════════════
+   MAP.CSS  —  hex-ish event map
+═══════════════════════════════════════ */
+
+#map-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+}
+
+#map-canvas {
+  display: block;
+}
+
+/* Map node types */
+.map-node {
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.map-node:hover { filter: brightness(1.4); }
+.map-node.visited { opacity: 0.45; }
+.map-node.current { filter: drop-shadow(0 0 6px var(--green)); }
+.map-node.locked  { opacity: 0.2; cursor: default; }
+
+/* ── Event choice card ── */
+.event-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+}
+
+.event-choice {
+  padding: var(--gap-sm) var(--gap-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.event-choice:hover {
+  border-color: var(--green);
+  background: var(--bg-hover);
+}
+
+/* ═══════════════════════════════════════
+   UI.CSS  —  misc UI components
+═══════════════════════════════════════ */
+
+/* ── Title screen ── */
+#title-logo {
+  font-family: var(--font-display);
+  font-size: 56px;
+  color: var(--green-bright);
+  text-align: center;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-shadow: 0 0 20px var(--green), 0 0 60px var(--green-dim);
+}
+
+#title-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+#title-cursor {
+  display: inline-block;
+  width: 10px;
+  height: 18px;
+  background: var(--green-bright);
+  vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+
+.title-btn-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap-sm);
+}
+
+/* ── Upgrade screen ── */
+.upgrade-options {
+  display: flex;
+  gap: var(--gap-lg);
+  justify-content: center;
+}
+
+.upgrade-card {
+  width: 200px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--gap-md);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.upgrade-card:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 16px var(--green-dim);
+}
+.upgrade-card-icon {
+  font-family: var(--font-display);
+  font-size: 36px;
+  color: var(--green-bright);
+  margin-bottom: var(--gap-sm);
+}
+.upgrade-card-title {
+  font-size: 14px;
+  color: var(--text-bright);
+  margin-bottom: 6px;
+}
+.upgrade-card-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* ── Game over ── */
+#gameover-title {
+  font-family: var(--font-display);
+  font-size: 64px;
+  color: var(--red);
+  text-shadow: 0 0 24px var(--red);
+  letter-spacing: 0.1em;
+}
+#gameover-title.win {
+  color: var(--green-bright);
+  text-shadow: 0 0 24px var(--green);
+}
+
+#gameover-stats {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 2;
+}
+
+/* ── Gold display ── */
+.gold-display {
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.gold-display::before { content: '¥ '; font-size: 12px; }
+
+/* ── Notification toast ── */
+#toast-container {
+  position: fixed;
+  top: var(--gap-md);
+  right: var(--gap-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sm);
+  z-index: 5000;
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--gap-sm) var(--gap-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--green);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-bright);
+  box-shadow: 0 0 12px var(--green-dim);
+  animation: toast-in 0.2s ease-out, toast-out 0.3s ease-in 2.5s forwards;
+  max-width: 260px;
+}
+.toast.warn  { border-color: var(--amber); color: var(--amber); }
+.toast.error { border-color: var(--red); color: var(--red); }
+
+@keyframes toast-in  { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+@keyframes toast-out { from { opacity:1; } to { opacity:0; } }
+
+/* ── Divider ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--gap-sm) 0;
+}
+
+/* ── Rank badge ── */
+.rank-badge {
+  font-family: var(--font-display);
+  font-size: 14px;
+  padding: 2px 10px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  letter-spacing: 0.05em;
+}
+.rank-wood     { color: #8d6e63; }
+.rank-iron     { color: #78909c; }
+.rank-bronze   { color: #cd7f32; }
+.rank-silver   { color: #b0bec5; }
+.rank-gold     { color: var(--amber); }
+.rank-legend   { color: var(--purple); }
+.rank-supreme  { color: var(--fire); }
+.rank-master   { color: var(--green-bright); text-shadow: 0 0 8px var(--green); }
+
+/* ── Modal overlay ── */
+#modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 900;
+  align-items: center;
+  justify-content: center;
+}
+#modal-overlay.active { display: flex; }
+
+#modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--green);
+  border-radius: var(--radius);
+  padding: var(--gap-xl);
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 0 32px var(--green-dim);
+}
