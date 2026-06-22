@@ -92,7 +92,17 @@ window.State = (() => {
       if (cellIdx >= _state.unlockedCells) return false;
     }
 
-    const occ = bagOccupied();
+    // Build occupancy excluding self (so repositioning works)
+    const occ = new Set();
+    for (const slot of _state.bag) {
+      if (slot.instanceId === instanceId) continue; // ignore self
+      const d = getCardDef(slot.instanceId);
+      if (!d) continue;
+      for (let i = 0; i < d.size; i++) {
+        occ.add(`${slot.col + i},${slot.row}`);
+      }
+    }
+
     for (let i = 0; i < def.size; i++) {
       if (occ.has(`${col + i},${row}`)) return false;
     }
