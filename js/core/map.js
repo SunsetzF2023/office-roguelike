@@ -46,9 +46,13 @@ window.MapEngine = (() => {
       }
     }
 
-    nodes[0].locked = false;
+    nodes[0].locked   = false;
+    nodes[0].visited  = true;  // start node is already "at"
 
-    return { nodes, edges, currentId: nodes[0].id };
+    const map = { nodes, edges, currentId: nodes[0].id };
+    // Unlock first row of reachable nodes
+    unlockFrom(map, nodes[0].id);
+    return map;
   }
 
   function nodeType(r, total) {

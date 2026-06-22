@@ -147,6 +147,23 @@ window.Game = (() => {
   function _startBattle(tier, isBoss = false) {
     const st = window.State.get();
 
+    // Warn if bag is empty
+    if (st.bag.length === 0) {
+      window.UI.openModal(`
+        <div class="panel-title">⚠ 背包是空的！</div>
+        <div style="color:var(--text-dim);font-size:12px;line-height:2;margin-bottom:16px">
+          你需要先把卡牌從<b style="color:var(--green)">倉庫</b>拖入<b style="color:var(--green)">背包格子</b>才能進入戰鬥。<br>
+          回到地圖，打開背包面板，把卡牌拖進格子吧！
+        </div>
+        <div style="text-align:center">
+          <button class="btn primary" onclick="window.UI.closeModal();window.Game._returnToMap()">
+            返回整理背包
+          </button>
+        </div>
+      `);
+      return;
+    }
+
     // Pick enemy
     let enemyDef;
     if (isBoss) {
@@ -159,9 +176,7 @@ window.Game = (() => {
 
     // Apply battle shield if player has that upgrade
     if (st._battleShieldPct) {
-      const shieldAmt = Math.round(st.maxHp * st._battleShieldPct);
-      // Will be applied in battle setup via combatant
-      st._startShield = shieldAmt;
+      st._startShield = Math.round(st.maxHp * st._battleShieldPct);
     }
 
     window.UI.showScreen('battle');
@@ -233,7 +248,9 @@ window.Game = (() => {
     window.ScreenMap.render();
   }
 
-  return { startNewRun, visitNode, leaveShop, afterUpgrade };
+  function _returnToMap() { _refreshMap(); }
+
+  return { startNewRun, visitNode, leaveShop, afterUpgrade, _returnToMap };
 })();
 
 // ── Boot ─────────────────────────────────────────────────────

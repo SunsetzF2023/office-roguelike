@@ -151,18 +151,24 @@ window.ScreenMap = (() => {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
       for (const node of map.nodes) {
-        if (node.locked) continue;
-        if (node.visited) continue;
-        // Check edges reachable from current
+        const dx = mx - node.x, dy = my - node.y;
+        if (dx*dx + dy*dy > nodeR*nodeR) continue;
+
+        if (node.visited) {
+          window.UI.toast('此節點已訪問', 'warn'); return;
+        }
+        if (node.locked) {
+          window.UI.toast('請先訪問相連的節點', 'warn'); return;
+        }
+        // Must be reachable from current node via an edge
         const reachable = map.edges.some(
           edge => edge.from === map.currentId && edge.to === node.id
-        ) || node.id === map.currentId;
-        if (!reachable) continue;
-        const dx = mx - node.x, dy = my - node.y;
-        if (dx*dx + dy*dy <= nodeR*nodeR) {
-          window.Game.visitNode(node);
-          return;
+        );
+        if (!reachable) {
+          window.UI.toast('無法直接到達此節點', 'warn'); return;
         }
+        window.Game.visitNode(node);
+        return;
       }
     };
   }

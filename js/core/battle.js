@@ -69,14 +69,16 @@ window.BattleEngine = (() => {
       const inst = instances[slot.instanceId];
       if (!inst) return null;
       const def = window.getCard(inst.cardId);
-      if (!def || !def.active) return null;
+      if (!def) return null;
+      // Cards without active skill still participate (for passive effects)
+      const cdMax = def.active ? def.active.cd * 1000 : Infinity;
       return {
         instanceId: slot.instanceId,
         cardId: inst.cardId,
         def,
         col: slot.col, row: slot.row,
-        cdMax: def.active.cd * 1000,
-        cdCurrent: def.active.cd * 1000 * Math.random(), // stagger start
+        cdMax,
+        cdCurrent: def.active ? cdMax * Math.random() : Infinity,
         attackCount: 1 + (inst.attackCountBonus || 0),
         damageBonus: inst.damageBonus || 0,
         isPlayer,
