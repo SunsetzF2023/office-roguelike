@@ -1,62 +1,91 @@
 // ═══════════════════════════════════════
-// js/core/map.js  —  map generation
+// js/core/map.js  —  linear map with choices per step
 // ═══════════════════════════════════════
 'use strict';
 
 window.MapEngine = (() => {
 
-  const COLS = 7;
-  const ROWS = 9;
+  // Map structure:
+  // A series of "steps". Each step has 2-3 node choices (player picks one).
+  // After picking, that step is done and next step unlocks.
+  // Pattern: [event/shop/gold choice] → battle → [event/shop/gold choice] → battle → ... → boss
+
+  const STEP_PATTERN = [
+    // step 0: pick a non-combat node (starting choices)
+    { choices: 2, pool: ['gold','gold','rest','shop','random'] },
+    // step 1: battle
+    { choices: 1, pool: ['battle'] },
+    // step 2: pick
+    { choices: 2, pool: ['gold','rest','shop','random','random'] },
+    // step 3: battle
+    { choices: 1, pool: ['battle'] },
+    // step 4: pick
+    { choices: 3, pool: ['shop','shop','random','rest','gold'] },
+    // step 5: elite battle
+    { choices: 1, pool: ['elite'] },
+    // step 6: pick
+    { choices: 2, pool: ['shop','random','rest','gold'] },
+    // step 7: battle
+    { choices: 1, pool: ['battle'] },
+    // step 8: pick
+    { choices: 3, pool: ['shop','random','rest','gold','gold'] },
+    // step 9: elite
+    { choices: 1, pool: ['elite'] },
+    // step 10: pick
+    { choices: 2, pool: ['shop','rest','random'] },
+    // step 11: boss
+    { choices: 1, pool: ['boss'] },
+  ];
 
   function generate() {
     const nodes = [];
     const edges = [];
+    let idCounter = 0;
 
-    // Build layered graph: each row = one "depth"
-    for (let r = 0; r < ROWS; r++) {
-      const nodeCount = r === 0 ? 1 : (r === ROWS - 1 ? 1 : randomInt(2, 4));
-      const rowNodes = [];
+    for (let stepIdx = 0; stepIdx < STEP_PATTERN.length; stepIdx++) {
+      const step = STEP_PATTERN[stepIdx];
+      const count = step.choices;
+      const stepNodes = [];
 
-      for (let i = 0; i < nodeCount; i++) {
-        const col = Math.round((i / (nodeCount - 1 || 1)) * (COLS - 1));
-        const type = nodeType(r, ROWS);
-        rowNodes.push({
-          id: `${r}_${i}`,
-          row: r,
-          col,
+      for (let i = 0; i < count; i++) {
+        // Pick random type from pool
+        const pool = step.pool;
+        const type = pool[Math.floor(Math.random() * pool.length)];
+        const node = {
+          id: `${stepIdx}_${i}`,
+          step: stepIdx,
+          posInStep: i,
+          totalInStep: count,
           type,
           icon: typeIcon(type),
           label: typeLabel(type),
           visited: false,
-          locked: r !== 0,
-          x: 0, y: 0,  // set by renderer
-        });
+          locked: stepIdx !== 0,  // only step 0 is unlocked at start
+        };
+        nodes.push(node);
+        stepNodes.push(node);
+        idCounter++;
       }
-      nodes.push(...rowNodes);
 
-      // Connect to previous row
-      if (r > 0) {
-        const prev = nodes.filter(n => n.row === r - 1);
-        for (const cur of rowNodes) {
-          // Connect to nearest in prev row
-          const nearest = prev.reduce((a, b) =>
-            Math.abs(a.col - cur.col) < Math.abs(b.col - cur.col) ? a : b);
-          edges.push({ from: nearest.id, to: cur.id });
+      // Connect previous step's chosen node → all nodes in this step
+      // (edges are created dynamically when a node is chosen; here we just
+      //  pre-create edges from every node in prev step to every node in this step)
+      if (stepIdx > 0) {
+        const prevStep = nodes.filter(n => n.step === stepIdx - 1);
+        for (const prev of prevStep) {
+          for (const cur of stepNodes) {
+            edges.push({ from: prev.id, to: cur.id });
+          }
         }
       }
     }
 
-    nodes[0].locked   = false;
-    nodes[0].visited  = true;  // start node is already "at"
-
-    const map = { nodes, edges, currentId: nodes[0].id };
-    // Unlock first row of reachable nodes
-    unlockFrom(map, nodes[0].id);
-    return map;
-  }
-
-  function nodeType(r, total) {
-    return window.getNodeTypeForDistance(r, total - 1);
+    return {
+      nodes,
+      edges,
+      currentStep: -1,  // -1 = not started, player picks from step 0
+      currentId: null,
+    };
   }
 
   function typeIcon(t) {
@@ -69,29 +98,29 @@ window.MapEngine = (() => {
              battle:'戰鬥', elite:'精英', boss:'頭目' }[t] || t;
   }
 
-  function randomInt(a, b) {
-    return Math.floor(Math.random() * (b - a + 1)) + a;
-  }
-
-  // Unlock nodes reachable from current
-  function unlockFrom(map, nodeId) {
-    const edges = map.edges.filter(e => e.from === nodeId);
-    for (const e of edges) {
-      const n = map.nodes.find(n => n.id === e.to);
-      if (n) n.locked = false;
-    }
-  }
-
-  // Mark node visited and unlock next
+  // Call when player clicks a node
   function visitNode(map, nodeId) {
     const node = map.nodes.find(n => n.id === nodeId);
-    if (node) {
-      node.visited = true;
-      node.locked  = false;
-    }
-    unlockFrom(map, nodeId);
-    map.currentId = nodeId;
+    if (!node) return;
+
+    node.visited  = true;
+    map.currentId   = nodeId;
+    map.currentStep = node.step;
+
+    // Lock all other nodes in same step (you can only pick one)
+    map.nodes
+      .filter(n => n.step === node.step && n.id !== nodeId)
+      .forEach(n => { n.locked = true; n.skipped = true; });
+
+    // Unlock next step
+    const nextStepNodes = map.nodes.filter(n => n.step === node.step + 1);
+    nextStepNodes.forEach(n => { n.locked = false; });
   }
 
-  return { generate, visitNode, typeIcon, typeLabel };
+  // Get nodes available to click (unlocked, not visited, not skipped)
+  function getAvailableNodes(map) {
+    return map.nodes.filter(n => !n.locked && !n.visited && !n.skipped);
+  }
+
+  return { generate, visitNode, getAvailableNodes, typeIcon, typeLabel };
 })();

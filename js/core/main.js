@@ -29,56 +29,35 @@ window.Game = (() => {
     const st = window.State.get();
     window.MapEngine.visitNode(st.map, node.id);
     const leveled = window.State.onEventCompleted();
+    if (leveled) st._pendingUpgrade = true;
 
     switch (node.type) {
-      case 'gold':
-        _handleGoldNode(node);
-        break;
-      case 'rest':
-        _handleRestNode(node);
-        break;
-      case 'shop':
-        _goToShop(1);
-        break;
-      case 'random':
-        _handleRandomEvent();
-        break;
-      case 'battle':
-        _startBattle(1);
-        break;
-      case 'elite':
-        _startBattle(2);
-        break;
-      case 'boss':
-        _startBattle(3, true);
-        break;
-    }
-
-    if (leveled) {
-      // Upgrade screen will be shown after current event resolves
-      st._pendingUpgrade = true;
+      case 'gold':    _handleGoldNode();    break;
+      case 'rest':    _handleRestNode();    break;
+      case 'shop':    _goToShop(1);         break;
+      case 'random':  _handleRandomEvent(); break;
+      case 'battle':  _startBattle(1);      break;
+      case 'elite':   _startBattle(2);      break;
+      case 'boss':    _startBattle(3, true);break;
     }
   }
 
-  function _handleGoldNode(node) {
-    const event = window.EVENTS.filter(e => e.type === 'gold')[
-      Math.floor(Math.random() * window.EVENTS.filter(e => e.type === 'gold').length)
-    ];
-    const gold = event.effect.gold;
-    window.State.gainGold(gold);
-    window.UI.toast(`${event.icon} ${event.name}：獲得 ${gold} 金幣`, '');
-    _refreshMap();
+  function _handleGoldNode() {
+    const events = window.EVENTS.filter(e => e.type === 'gold');
+    const event  = events[Math.floor(Math.random() * events.length)];
+    window.State.gainGold(event.effect.gold);
+    window.UI.toast(`${event.icon} ${event.name}：獲得 ${event.effect.gold} 金幣`);
+    _checkUpgradeOrMap();
   }
 
-  function _handleRestNode(node) {
-    const event = window.EVENTS.filter(e => e.type === 'rest')[
-      Math.floor(Math.random() * window.EVENTS.filter(e => e.type === 'rest').length)
-    ];
-    const st = window.State.get();
-    const heal = Math.round(st.maxHp * event.effect.healPct);
+  function _handleRestNode() {
+    const events = window.EVENTS.filter(e => e.type === 'rest');
+    const event  = events[Math.floor(Math.random() * events.length)];
+    const st     = window.State.get();
+    const heal   = Math.round(st.maxHp * event.effect.healPct);
     window.State.healPlayer(heal);
-    window.UI.toast(`${event.icon} ${event.name}：恢復 ${heal} HP`, '');
-    _refreshMap();
+    window.UI.toast(`${event.icon} ${event.name}：恢復 ${heal} HP`);
+    _checkUpgradeOrMap();
   }
 
   function _handleRandomEvent() {

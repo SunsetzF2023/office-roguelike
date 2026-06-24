@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════
-// js/ui/screenMap.js
+// js/ui/screenMap.js  —  linear step map
 // ═══════════════════════════════════════
 'use strict';
 
@@ -14,12 +14,10 @@ window.ScreenMap = (() => {
         <div id="player-statbar">
           <div class="stat-item">
             <span class="stat-label">HP</span>
-            <span class="stat-val" id="map-hp">${st.hp}</span>
-            <span class="dim">/ ${st.maxHp}</span>
+            <span class="stat-val">${st.hp}</span>
+            <span class="dim"> / ${st.maxHp}</span>
           </div>
-          <div style="flex:1;max-width:160px">
-            ${window.UI.hpBar(st.hp, st.maxHp)}
-          </div>
+          <div style="flex:1;max-width:160px">${window.UI.hpBar(st.hp, st.maxHp)}</div>
           <div class="stat-item">
             <span class="stat-label">Gold</span>
             ${window.UI.goldHtml(st.gold)}
@@ -34,8 +32,10 @@ window.ScreenMap = (() => {
           </div>
         </div>
 
-        <div id="map-canvas-wrap">
-          <canvas id="map-canvas"></canvas>
+        <div id="map-canvas-wrap" style="flex:1;overflow-y:auto;
+             background:var(--bg-panel);border:1px solid var(--border);
+             border-radius:3px;padding:16px;">
+          <div id="map-steps"></div>
         </div>
       </div>
 
@@ -44,133 +44,135 @@ window.ScreenMap = (() => {
           <div class="panel-title">背包</div>
           <div id="map-bag-container"></div>
         </div>
-        <div class="panel">
+        <div class="panel" style="flex:1;overflow-y:auto">
           <div class="panel-title">倉庫</div>
           <div id="map-warehouse-container"></div>
         </div>
       </div>
     `;
 
-    // Render bag
     window.BagPanel.init(
       document.getElementById('map-bag-container'),
       () => window.BagPanel.renderWarehouse(document.getElementById('map-warehouse-container'))
     );
     window.BagPanel.renderWarehouse(document.getElementById('map-warehouse-container'));
 
-    // Draw map
-    _drawMap(st.map);
+    _renderSteps(st.map);
   }
 
-  function _drawMap(map) {
-    if (!map) return;
-    const canvas = document.getElementById('map-canvas');
-    if (!canvas) return;
-    const wrap   = document.getElementById('map-canvas-wrap');
-    const W      = wrap.clientWidth  || 500;
-    const H      = wrap.clientHeight || 600;
-    canvas.width  = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
+  function _renderSteps(map) {
+    const wrap = document.getElementById('map-steps');
+    if (!wrap || !map) return;
 
-    const rows = [...new Set(map.nodes.map(n => n.row))].sort((a,b)=>a-b);
-    const totalRows = rows.length;
-    const rowH = H / (totalRows + 1);
-    const nodeR = 20;
+    // Group nodes by step
+    const maxStep = Math.max(...map.nodes.map(n => n.step));
+    let html = '<div style="display:flex;flex-direction:column;gap:0;align-items:center;">';
 
-    // Assign pixel positions
-    for (const r of rows) {
-      const rowNodes = map.nodes.filter(n => n.row === r).sort((a,b) => a.col - b.col);
-      const cols = rowNodes.length;
-      rowNodes.forEach((n, i) => {
-        n.x = W * (i + 1) / (cols + 1);
-        n.y = H - (r + 1) * rowH;
-      });
-    }
+    for (let s = maxStep; s >= 0; s--) {
+      const stepNodes = map.nodes.filter(n => n.step === s).sort((a,b)=>a.posInStep-b.posInStep);
 
-    // Draw edges
-    ctx.lineWidth = 1;
-    for (const edge of map.edges) {
-      const from = map.nodes.find(n => n.id === edge.from);
-      const to   = map.nodes.find(n => n.id === edge.to);
-      if (!from || !to) continue;
-      ctx.strokeStyle = '#1e3a1e';
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(to.x, to.y);
-      ctx.stroke();
-    }
-
-    // Draw nodes
-    for (const node of map.nodes) {
-      if (node.locked && !node.visited) {
-        ctx.globalAlpha = 0.2;
-      } else if (node.visited) {
-        ctx.globalAlpha = 0.45;
-      } else {
-        ctx.globalAlpha = 1;
+      // Connector line (except last)
+      if (s < maxStep) {
+        html += `<div style="width:2px;height:20px;background:var(--border);margin:0 auto;"></div>`;
       }
 
-      // Glow for current
-      if (node.id === map.currentId) {
-        ctx.shadowColor = '#4caf50';
-        ctx.shadowBlur  = 16;
-      } else {
-        ctx.shadowBlur = 0;
+      // Node row
+      const isBattle = stepNodes[0] && ['battle','elite','boss'].includes(stepNodes[0].type);
+
+      html += `<div style="display:flex;gap:16px;align-items:center;justify-content:center;
+                            padding:4px 0;" data-step="${s}">`;
+
+      for (const node of stepNodes) {
+        const available = !node.locked && !node.visited && !node.skipped;
+        const isCurrent = node.id === map.currentId;
+        const isVisited = node.visited;
+        const isSkipped = node.skipped;
+
+        const typeColors = {
+          gold:'#ffb300', rest:'#29b6f6', random:'#ab47bc',
+          shop:'#4caf50', battle:'#e53935', elite:'#ff7043', boss:'#f44336'
+        };
+        const color = typeColors[node.type] || '#558b57';
+
+        let borderStyle = `2px solid ${color}`;
+        let opacity = '1';
+        let cursor  = 'default';
+        let glow    = '';
+        let textColor = '#fff';
+
+        if (isVisited) {
+          opacity = '0.4';
+          borderStyle = `2px solid ${color}`;
+        } else if (isSkipped) {
+          opacity = '0.2';
+        } else if (available) {
+          cursor = 'pointer';
+          glow = `box-shadow:0 0 12px ${color}55, 0 0 24px ${color}22;`;
+          borderStyle = `2px solid ${color}`;
+        } else {
+          opacity = '0.25';
+        }
+
+        if (isCurrent) {
+          glow = `box-shadow:0 0 16px var(--green), 0 0 32px var(--green-dim);`;
+          borderStyle = `2px solid var(--green-bright)`;
+        }
+
+        html += `
+          <div class="map-node-btn" data-nodeid="${node.id}"
+               style="
+                 width:64px;height:64px;
+                 border-radius:50%;
+                 border:${borderStyle};
+                 background:var(--bg-panel);
+                 display:flex;flex-direction:column;
+                 align-items:center;justify-content:center;
+                 gap:2px;
+                 opacity:${opacity};
+                 cursor:${cursor};
+                 transition:all 0.2s;
+                 position:relative;
+                 ${glow}
+               ">
+            <div style="font-size:22px;line-height:1">${node.icon}</div>
+            <div style="font-size:9px;color:${textColor};opacity:0.8;letter-spacing:0.05em">
+              ${node.label}
+            </div>
+            ${isVisited ? `<div style="position:absolute;top:2px;right:4px;font-size:9px;color:var(--green)">✓</div>` : ''}
+            ${available ? `<div style="position:absolute;bottom:-18px;font-size:9px;
+                                       color:${color};white-space:nowrap">點擊選擇</div>` : ''}
+          </div>`;
       }
+      html += '</div>';
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
 
-      const color = {
-        gold:'#ffb300', rest:'#29b6f6', random:'#ab47bc',
-        shop:'#4caf50', battle:'#e53935', elite:'#ff7043', boss:'#f44336'
-      }[node.type] || '#558b57';
-
-      ctx.fillStyle = '#0d140d';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = node.id === map.currentId ? 2.5 : 1.5;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, nodeR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Icon
-      ctx.globalAlpha = node.locked ? 0.2 : 1;
-      ctx.font = '16px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.shadowBlur = 0;
-      ctx.fillText(node.icon, node.x, node.y);
-
-      ctx.globalAlpha = 1;
-      ctx.shadowBlur  = 0;
+    // Scroll to current step
+    const available = map.nodes.filter(n => !n.locked && !n.visited && !n.skipped);
+    if (available.length > 0) {
+      const step = available[0].step;
+      const stepEl = wrap.querySelector(`[data-step="${step}"]`);
+      if (stepEl) setTimeout(() => stepEl.scrollIntoView({ behavior:'smooth', block:'center' }), 100);
     }
 
-    // Click handler
-    canvas.onclick = e => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      for (const node of map.nodes) {
-        const dx = mx - node.x, dy = my - node.y;
-        if (dx*dx + dy*dy > nodeR*nodeR) continue;
+    // Bind clicks
+    wrap.querySelectorAll('.map-node-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nodeId = btn.dataset.nodeid;
+        const node   = map.nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        if (node.locked || node.visited || node.skipped) return;
 
-        if (node.visited) {
-          window.UI.toast('此節點已訪問', 'warn'); return;
-        }
-        if (node.locked) {
-          window.UI.toast('請先訪問相連的節點', 'warn'); return;
-        }
-        // Must be reachable from current node via an edge
-        const reachable = map.edges.some(
-          edge => edge.from === map.currentId && edge.to === node.id
-        );
-        if (!reachable) {
-          window.UI.toast('無法直接到達此節點', 'warn'); return;
+        // Must be available (unlocked)
+        const avail = window.MapEngine.getAvailableNodes(map);
+        if (!avail.find(n => n.id === nodeId)) {
+          window.UI.toast('請先完成當前步驟', 'warn');
+          return;
         }
         window.Game.visitNode(node);
-        return;
-      }
-    };
+      });
+    });
   }
 
   return { render };

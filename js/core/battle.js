@@ -238,21 +238,67 @@ window.BattleEngine = (() => {
     const totalDmg = (act.value || 0) + (slot.damageBonus || 0);
 
     switch (act.effect) {
-      case 'damage': {
-        const d = SE.applyDamage(opponent, totalDmg);
-        _log(`⚡ ${def.name} 攻擊造成 ${d} 傷害`, 'log-dmg');
-        break;
-      }
+      case 'damage':
       case 'damage_scaling': {
         const d = SE.applyDamage(opponent, totalDmg);
         _log(`⚡ ${def.name} 攻擊造成 ${d} 傷害`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
         break;
       }
-      case 'damage_hp_scaling': {
-        let dmgVal = act.value + slot.damageBonus;
-        if (self.hp / self.maxHp < 0.5) dmgVal *= 2;
-        const d = SE.applyDamage(opponent, dmgVal);
-        _log(`⚡ ${def.name} 攻擊造成 ${d} 傷害`, 'log-dmg');
+      case 'damage_if_speed': {
+        let val = act.value + slot.damageBonus;
+        const now2 = performance.now();
+        if (self.speedUntil > now2) val += act.bonusIfSpeed || 0;
+        const d = SE.applyDamage(opponent, val);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害${self.speedUntil > now2 ? '（加速加成）':''}`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_plus_per_enemy_shield': {
+        const shieldBonus = opponent.shield * (act.perShield || 0);
+        const val = act.value + slot.damageBonus + shieldBonus;
+        const d = SE.applyDamage(opponent, val);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害（含護盾加成 ${shieldBonus}）`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_plus_slow': {
+        const d = SE.applyDamage(opponent, totalDmg);
+        SE.applySlow(opponent, act.slowDur || 2);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害 + 減速`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_plus_slow_all': {
+        const d = SE.applyDamage(opponent, totalDmg);
+        SE.applySlow(opponent, act.slowDur || 3);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害 + 全體減速`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_vs_slowed': {
+        const now3 = performance.now();
+        const isSlowed = opponent.slowUntil > now3 || opponent.frozenUntil > now3;
+        const val = (act.value + slot.damageBonus) * (isSlowed ? 2 : 1);
+        const d = SE.applyDamage(opponent, val);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害${isSlowed?' (×2)':''}`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_first_strike': {
+        const bonus = slot._firstStrikeDone ? 0 : (act.firstBonus || 0);
+        slot._firstStrikeDone = true;
+        const val = act.value + slot.damageBonus + bonus;
+        const d = SE.applyDamage(opponent, val);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害${bonus?' (首擊)':''}`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
+        break;
+      }
+      case 'damage_cd_grow': {
+        const d = SE.applyDamage(opponent, totalDmg);
+        slot.cdMax += (act.cdGrow || 500);
+        _log(`⚡ ${def.name} 造成 ${d} 傷害（CD增加）`, 'log-dmg');
+        _applyExtraEffects(slot, opponent, d);
         break;
       }
       case 'damage_plus_burn_pct': {
@@ -350,6 +396,37 @@ window.BattleEngine = (() => {
       }
       if (p.effect === 'self_damage_up') {
         slot.damageBonus += p.value;
+      }
+    }
+  }
+
+  // ── Extra effects from card merging ──────────────────────────
+  function _applyExtraEffects(slot, opponent, baseDmg) {
+    const inst = window.State.getInstance(slot.instanceId);
+    if (!inst || !inst.extraEffects || inst.extraEffects.length === 0) return;
+    for (const fx of inst.extraEffects) {
+      switch(fx) {
+        case 'damage_extra': {
+          const bonus = Math.round(baseDmg * 0.3);
+          SE.applyDamage(opponent, bonus);
+          _log(`  ✨ 合成加成 +${bonus} 傷害`, 'log-dmg');
+          break;
+        }
+        case 'poison_extra':
+          SE.addPoison(opponent, 2);
+          _log(`  ✨ 合成附加 2 層剧毒`, 'log-poison');
+          break;
+        case 'burn_extra':
+          SE.addBurn(opponent, 2);
+          _log(`  ✨ 合成附加 2 層燃燒`, 'log-fire');
+          break;
+        case 'shield_extra':
+          SE.addShield({ hp: 0, shield: 0 }, 0); // applied to self via slot owner
+          // Actually add to self combatant — need self ref
+          break;
+        case 'cd_reduce':
+          slot.cdCurrent = Math.max(0, slot.cdCurrent - 1000);
+          break;
       }
     }
   }

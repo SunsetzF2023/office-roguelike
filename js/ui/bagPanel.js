@@ -64,11 +64,11 @@ window.BagPanel = (() => {
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        const idx    = r * COLS + c;
-        const locked = idx >= st.unlockedCells;
-        const key    = `${c},${r}`;
-        const instId = occ[key];
-        const slot   = instId ? st.bag.find(s => s.instanceId === instId) : null;
+        const cellIdx = r * COLS + c;
+        const locked  = !st.unlockedSet.has(cellIdx);
+        const key     = `${c},${r}`;
+        const instId  = occ[key];
+        const slot    = instId ? st.bag.find(s => s.instanceId === instId) : null;
         const isOrigin = slot && slot.col === c && slot.row === r;
 
         html += `<div class="bag-cell${locked?' locked-cell':''}"
@@ -90,6 +90,11 @@ window.BagPanel = (() => {
             buff:'#ab47bc',damage:'#ffb300'
           };
           const col = typeColors[def.type] || '#558b57';
+          const inst = window.State.getInstance(instId);
+          const lvBadge = inst && inst.mergeLevel > 1
+            ? `<div style="position:absolute;top:2px;right:3px;
+                           font-size:8px;color:var(--amber);font-weight:bold">
+                 Lv${inst.mergeLevel}</div>` : '';
           html += `<div class="bag-chip"
                         data-instance="${instId}"
                         style="
@@ -106,6 +111,7 @@ window.BagPanel = (() => {
                           padding:4px 6px;
                           box-sizing:border-box;
                         ">
+                    ${lvBadge}
                     <div style="font-size:9px;color:var(--text-label);
                                 white-space:nowrap;overflow:hidden;
                                 text-overflow:ellipsis;padding-left:3px">
@@ -299,12 +305,18 @@ window.BagPanel = (() => {
       const col = +cell.dataset.col;
       const row = +cell.dataset.row;
       if (window.State.placeCard(_drag.instanceId, col, row)) {
-        // success
+        // Check for merge
+        const mergedId = window.State.tryMergeCards(_drag.instanceId);
+        if (mergedId) {
+          const def = window.State.getCardDef(mergedId);
+          const inst = window.State.getInstance(mergedId);
+          window.UI.toast(`✨ 合成升級：${def.name} → Lv${inst.mergeLevel}`, '');
+        }
       } else if (_drag.sourceEl) {
         _drag.sourceEl.style.opacity = '';
       }
     } else {
-      // Dropped outside grid — put back in warehouse if from bag
+      // Dropped outside — put back to warehouse if from bag
       if (!_drag.fromWarehouse) {
         window.State.addToWarehouse(_drag.instanceId);
       }
