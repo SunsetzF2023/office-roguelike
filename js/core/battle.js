@@ -72,6 +72,9 @@ window.BattleEngine = (() => {
 
     burnTimer = 0; poisonTimer = 0; simTime = 0;
     _log(`⚡ 戰鬥：YOU vs ${enemy.name}`, 'log-status');
+    _log(`我方 ${playerSlots.length} 張卡：${playerSlots.map(s=>s.def.name).join('、')}`, 'log-status');
+    _log(`敵方 ${enemySlots.length} 張卡：${enemySlots.map(s=>s.def.name).join('、')}`, 'log-status');
+    if (playerSlots.length === 0) _log('⚠ 警告：我方背包沒有卡牌！', 'log-lose');
   }
 
   function _buildPlayerSlots(bag, instances) {
@@ -227,11 +230,15 @@ window.BattleEngine = (() => {
         _log(`⚡ ${slot.def.name} 造成 ${d} 傷害`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_plus_slow': {
-        const d = _dmg(opp, tdmg); _slowSlot(opp, allSlots, act.slowDur||2);
+        const d = _dmg(opp, tdmg);
+        const isP = !slot.instanceId.startsWith('e_');
+        _slowAllOpp(isP, act.slowDur||2);
         _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 + 減速`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_plus_slow_all': {
-        const d = _dmg(opp, tdmg); _slowSlot(opp, allSlots, act.slowDur||3);
+        const d = _dmg(opp, tdmg);
+        const isP2 = !slot.instanceId.startsWith('e_');
+        _slowAllOpp(isP2, act.slowDur||3);
         _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 + 全體減速`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_vs_slowed': {
@@ -303,21 +310,23 @@ window.BattleEngine = (() => {
         const h = Math.min(act.value, self.maxHp-self.hp); self.hp += h;
         _log(`💚 ${slot.def.name} 恢復 ${h} HP`,'log-heal'); break;
       }
-      case 'freeze':
-        (slot.instanceId.startsWith('e_') ? playerSlots : enemySlots)
-          .forEach(s => _applyFreezeSlot(s, act.value));
+      case 'freeze': {
+        const isP3 = !slot.instanceId.startsWith('e_');
+        const targets = isP3 ? enemySlots : playerSlots;
+        targets.forEach(s => _applyFreezeSlot(s, act.value));
         _log(`❄ ${slot.def.name} 冰凍對方 ${act.value}s`,'log-status'); break;
+      }
     }
   }
 
-  // Per-slot speed helpers
   function _applySpeedSlot(s, sec)  { s.speedUntil  = Math.max(s.speedUntil,  simTime + sec*1000); }
   function _applySlowSlot(s, sec)   { s.slowUntil   = Math.max(s.slowUntil,   simTime + sec*1000); }
   function _applyFreezeSlot(s, sec) { s.frozenUntil = Math.max(s.frozenUntil, simTime + sec*1000); }
 
-  function _slowSlot(opp, oppSlots, sec) {
-    const target = oppSlots || (opp === enemy ? enemySlots : playerSlots);
-    target.forEach(s => _applySlowSlot(s, sec));
+  // Slow all slots of the opponent side
+  function _slowAllOpp(isPlayerSlot, sec) {
+    const targets = isPlayerSlot ? enemySlots : playerSlots;
+    targets.forEach(s => _applySlowSlot(s, sec));
   }
 
   // ─────────────────────────────────────────────────────────────

@@ -34,14 +34,36 @@ window.Game = (() => {
         window.UI.openModal(`
           <div class="panel-title">⚠ 背包是空的！</div>
           <div style="color:var(--text-dim);font-size:12px;line-height:2;margin-bottom:16px">
-            你需要先把卡牌從<b style="color:var(--green)">倉庫</b>拖入<b style="color:var(--green)">背包格子</b>才能進入戰鬥。<br>
-            關閉此提示後，把卡牌拖進背包格子，再點擊戰鬥節點即可。
+            請先把卡牌從<b style="color:var(--green)">倉庫</b>拖入<b style="color:var(--green)">背包格子</b>再進入戰鬥。
           </div>
           <div style="text-align:center">
-            <button class="btn primary" onclick="window.UI.closeModal()">好的，去整理</button>
+            <button class="btn primary" onclick="window.UI.closeModal()">好的</button>
           </div>
         `);
-        return; // node NOT consumed
+        return;
+      }
+      // Warn if no damage cards in bag
+      const hasDmg = st.bag.some(slot => {
+        const def = window.State.getCardDef(slot.instanceId);
+        return def && def.active && ['damage','damage_scaling','damage_hp_scaling',
+          'damage_if_speed','damage_plus_per_enemy_shield','damage_plus_slow',
+          'damage_plus_slow_all','damage_vs_slowed','damage_first_strike',
+          'damage_cd_grow','damage_plus_burn_pct','burn','poison','poison_all'].includes(def.active.effect);
+      });
+      if (!hasDmg) {
+        window.UI.openModal(`
+          <div class="panel-title">⚠ 沒有攻擊卡！</div>
+          <div style="color:var(--text-dim);font-size:12px;line-height:2;margin-bottom:16px">
+            你的背包裡沒有能造成傷害的卡牌，無法傷害敵人。<br>
+            請加入<b style="color:var(--amber)">傷害型</b>（⚡）、<b style="color:var(--fire)">燃燒型</b>（🔥）或<b style="color:var(--poison)">剧毒型</b>（☠）卡牌再戰鬥。<br><br>
+            目前背包：${st.bag.map(s=>{const d=window.State.getCardDef(s.instanceId);return d?d.name:'?';}).join('、')}
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button class="btn primary" onclick="window.UI.closeModal()">返回整理</button>
+            <button class="btn" onclick="window.UI.closeModal();window.Game._forceEnterBattle('${node.type}')">還是進入戰鬥</button>
+          </div>
+        `);
+        return;
       }
     }
 
@@ -231,7 +253,14 @@ window.Game = (() => {
 
   function _returnToMap() { _refreshMap(); }
 
-  return { startNewRun, visitNode, leaveShop, afterUpgrade, _returnToMap };
+  function _forceEnterBattle(type) {
+    const st = window.State.get();
+    const node = st.map && st.map.nodes.find(n =>
+      n.type === type && !n.visited && !n.skipped && !n.locked);
+    if (node) { window.MapEngine.visitNode(st.map, node.id); _startBattle(type==='elite'?2:type==='boss'?3:1, type==='boss'); }
+  }
+
+  return { startNewRun, visitNode, leaveShop, afterUpgrade, _returnToMap, _forceEnterBattle };
 })();
 
 // ── Boot ─────────────────────────────────────────────────────
