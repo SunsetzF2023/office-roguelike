@@ -27,18 +27,37 @@ window.Game = (() => {
   // ── Visit a map node ─────────────────────────────────────────
   function visitNode(node) {
     const st = window.State.get();
+
+    // For battle nodes: check bag FIRST before consuming the node
+    if (['battle','elite','boss'].includes(node.type)) {
+      if (st.bag.length === 0) {
+        window.UI.openModal(`
+          <div class="panel-title">⚠ 背包是空的！</div>
+          <div style="color:var(--text-dim);font-size:12px;line-height:2;margin-bottom:16px">
+            你需要先把卡牌從<b style="color:var(--green)">倉庫</b>拖入<b style="color:var(--green)">背包格子</b>才能進入戰鬥。<br>
+            關閉此提示後，把卡牌拖進背包格子，再點擊戰鬥節點即可。
+          </div>
+          <div style="text-align:center">
+            <button class="btn primary" onclick="window.UI.closeModal()">好的，去整理</button>
+          </div>
+        `);
+        return; // node NOT consumed
+      }
+    }
+
+    // Now consume the node
     window.MapEngine.visitNode(st.map, node.id);
     const leveled = window.State.onEventCompleted();
     if (leveled) st._pendingUpgrade = true;
 
     switch (node.type) {
-      case 'gold':    _handleGoldNode();    break;
-      case 'rest':    _handleRestNode();    break;
-      case 'shop':    _goToShop(1);         break;
-      case 'random':  _handleRandomEvent(); break;
-      case 'battle':  _startBattle(1);      break;
-      case 'elite':   _startBattle(2);      break;
-      case 'boss':    _startBattle(3, true);break;
+      case 'gold':    _handleGoldNode();        break;
+      case 'rest':    _handleRestNode();        break;
+      case 'shop':    _goToShop(1);             break;
+      case 'random':  _handleRandomEvent();     break;
+      case 'battle':  _startBattle(1);          break;
+      case 'elite':   _startBattle(2);          break;
+      case 'boss':    _startBattle(3, true);    break;
     }
   }
 
@@ -125,23 +144,6 @@ window.Game = (() => {
   // ── Battle ───────────────────────────────────────────────────
   function _startBattle(tier, isBoss = false) {
     const st = window.State.get();
-
-    // Warn if bag is empty
-    if (st.bag.length === 0) {
-      window.UI.openModal(`
-        <div class="panel-title">⚠ 背包是空的！</div>
-        <div style="color:var(--text-dim);font-size:12px;line-height:2;margin-bottom:16px">
-          你需要先把卡牌從<b style="color:var(--green)">倉庫</b>拖入<b style="color:var(--green)">背包格子</b>才能進入戰鬥。<br>
-          回到地圖，打開背包面板，把卡牌拖進格子吧！
-        </div>
-        <div style="text-align:center">
-          <button class="btn primary" onclick="window.UI.closeModal();window.Game._returnToMap()">
-            返回整理背包
-          </button>
-        </div>
-      `);
-      return;
-    }
 
     // Pick enemy
     let enemyDef;

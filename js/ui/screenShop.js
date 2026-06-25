@@ -125,14 +125,12 @@ window.ScreenBattle = (() => {
       <div id="battle-header">
         <div style="display:flex;align-items:center;gap:16px">
           <span class="glow-green" style="font-family:var(--font-display);font-size:18px">YOU</span>
-          <span style="font-size:12px;color:var(--text-dim)">HP:</span>
-          <span id="b-player-hp" style="font-family:var(--font-display);font-size:18px;color:var(--green-bright)">${st.hp}</span>
-          <div style="width:120px">${window.UI.hpBar(st.hp, st.maxHp)}</div>
+          <span id="b-player-hp" style="font-family:var(--font-display);font-size:18px;color:var(--green-bright)">1500</span>
+          <div class="hp-bar-wrap" style="width:120px" id="b-player-hpbar"></div>
         </div>
-        <div id="battle-vs-label" style="font-family:var(--font-display);font-size:28px;color:var(--red);text-shadow:0 0 12px var(--red)">VS</div>
+        <div style="font-family:var(--font-display);font-size:28px;color:var(--red);text-shadow:0 0 12px var(--red)">VS</div>
         <div style="display:flex;align-items:center;gap:16px">
-          <div style="width:120px">${window.UI.hpBar(1500, 1500)}</div>
-          <span style="font-size:12px;color:var(--text-dim)">HP:</span>
+          <div class="hp-bar-wrap" style="width:120px" id="b-enemy-hpbar"></div>
           <span id="b-enemy-hp" style="font-family:var(--font-display);font-size:18px;color:var(--red)">1500</span>
           <span class="red" style="font-family:var(--font-display);font-size:18px">${enemyDef.name}</span>
         </div>
@@ -184,20 +182,31 @@ window.ScreenBattle = (() => {
   function updateTick(data) {
     const { player, enemy, playerSlots, enemySlots } = data;
 
-    // HP
+    // HP numbers
     const phEl = document.getElementById('b-player-hp');
     const ehEl = document.getElementById('b-enemy-hp');
     if (phEl) phEl.textContent = Math.max(0, Math.round(player.hp));
     if (ehEl) ehEl.textContent = Math.max(0, Math.round(enemy.hp));
 
-    // HP bars in header
-    const now = performance.now();
+    // HP bars
+    const pBarEl = document.getElementById('b-player-hpbar');
+    const eBarEl = document.getElementById('b-enemy-hpbar');
+    if (pBarEl) {
+      const pct = Math.max(0, player.hp / player.maxHp * 100);
+      const cls = pct < 25 ? 'crit' : pct < 50 ? 'low' : '';
+      pBarEl.innerHTML = `<div class="hp-bar-fill ${cls}" style="width:${pct}%"></div>`;
+    }
+    if (eBarEl) {
+      const pct = Math.max(0, enemy.hp / enemy.maxHp * 100);
+      const cls = pct < 25 ? 'crit' : pct < 50 ? 'low' : '';
+      eBarEl.innerHTML = `<div class="hp-bar-fill enemy ${cls}" style="width:${pct}%;background:var(--red)"></div>`;
+    }
 
-    // Statuses
+    // Status badges using new engine
     const psEl = document.getElementById('b-player-statuses');
     const esEl = document.getElementById('b-enemy-statuses');
-    if (psEl) psEl.innerHTML = window.UI.statusBadges(window.StatusEngine.getStatusSnapshot(player, now));
-    if (esEl) esEl.innerHTML = window.UI.statusBadges(window.StatusEngine.getStatusSnapshot(enemy, now));
+    if (psEl) psEl.innerHTML = window.UI.statusBadges(window.BattleEngine.getStatusSnap(player));
+    if (esEl) esEl.innerHTML = window.UI.statusBadges(window.BattleEngine.getStatusSnap(enemy));
 
     // Card CD bars
     _renderBattleCards('b-player-cards', playerSlots, false);
