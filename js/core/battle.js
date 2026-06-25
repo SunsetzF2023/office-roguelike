@@ -272,10 +272,48 @@ window.BattleEngine = (() => {
       }
 
       // ── Speed (per-slot, only affects specified targets) ───
-      case 'speed_adjacent':
-        // Apply speed only to adjacent slots
+      case 'speed_adjacent_plus_damage': {
         _adj(slot, allSlots).forEach(a => _applySpeedSlot(a, act.value));
-        _log(`💨 ${slot.def.name} 相鄰卡牌加速 ${act.value}s`,'log-status'); break;
+        const d = _dmg(opp, act.damage||0);
+        _log(`💨 ${slot.def.name} 相鄰加速 + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'speed_random_allies_plus_damage': {
+        const pool = allSlots.filter(s=>s.instanceId!==slot.instanceId);
+        const n = Math.min(act.count||2, pool.length);
+        pool.sort(()=>Math.random()-0.5).slice(0,n).forEach(s=>_applySpeedSlot(s,act.value));
+        const d = _dmg(opp, act.damage||0);
+        _log(`💨 ${slot.def.name} 隨機加速 + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'speed_one_slow_one_plus_damage': {
+        const allies = allSlots.filter(s=>s.instanceId!==slot.instanceId);
+        if (allies.length) _applySpeedSlot(allies[Math.floor(Math.random()*allies.length)], act.speedVal||2);
+        const isP = !slot.instanceId.startsWith('e_');
+        const oppSlots2 = isP ? enemySlots : playerSlots;
+        if (oppSlots2.length) _applySlowSlot(oppSlots2[Math.floor(Math.random()*oppSlots2.length)], act.slowVal||2);
+        const d = _dmg(opp, act.damage||0);
+        _log(`💨 ${slot.def.name} 加速/減速 + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'shield_self_plus_damage': {
+        self.shield += Math.round(act.value||0);
+        const d = _dmg(opp, act.damage||0);
+        _log(`🛡 ${slot.def.name} 護盾 +${act.value} + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'shield_per_ally_plus_damage': {
+        self.shield += Math.round((act.value||0) * allSlots.length);
+        const d = _dmg(opp, act.damage||0);
+        _log(`🛡 ${slot.def.name} 護盾 +${act.value*allSlots.length} + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'freeze_plus_damage': {
+        const isP4 = !slot.instanceId.startsWith('e_');
+        (isP4 ? enemySlots : playerSlots).forEach(s => _applyFreezeSlot(s, act.value||2));
+        const d = _dmg(opp, act.damage||0);
+        _log(`❄ ${slot.def.name} 冰凍 ${act.value}s + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'speed_all_plus_damage': {
+        allSlots.forEach(s => _applySpeedSlot(s, act.value||2));
+        const d = _dmg(opp, act.damage||0);
+        _log(`💨 ${slot.def.name} 全體加速 + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
 
       case 'speed_random_allies': {
         // Pick random ally slots (not self)
@@ -309,6 +347,21 @@ window.BattleEngine = (() => {
       case 'heal_player': {
         const h = Math.min(act.value, self.maxHp-self.hp); self.hp += h;
         _log(`💚 ${slot.def.name} 恢復 ${h} HP`,'log-heal'); break;
+      }
+      case 'poison_all_plus_damage': {
+        opp.poisonLayers += act.value||1;
+        const d = _dmg(opp, act.damage||0);
+        _log(`☠ ${slot.def.name} 全體 +${act.value}剧毒 + 造成 ${d} 傷害`, 'log-poison'); break;
+      }
+      case 'shield_all_plus_damage': {
+        self.shield += Math.round(act.value||0);
+        const d = _dmg(opp, act.damage||0);
+        _log(`🛡 ${slot.def.name} 護盾 +${act.value} + 造成 ${d} 傷害`, 'log-dmg'); break;
+      }
+      case 'heal_plus_damage': {
+        const h = Math.min(act.value||0, self.maxHp - self.hp); self.hp += h;
+        const d = _dmg(opp, act.damage||0);
+        _log(`💚 ${slot.def.name} 恢復 ${h} HP + 造成 ${d} 傷害`, 'log-heal'); break;
       }
       case 'freeze': {
         const isP3 = !slot.instanceId.startsWith('e_');

@@ -22,9 +22,9 @@ window.CARDS = [
     lore: '普普通通的辦公室職員，職場中的炮灰。',
     active: {
       cd: 5,
-      desc: '對相鄰角色施加【加速】狀態 2 秒。',
-      effect: 'speed_adjacent',
-      value: 2,
+      desc: '對相鄰角色施加【加速】2 秒，並對敵人造成 5 點傷害。',
+      effect: 'speed_adjacent_plus_damage',
+      value: 2, damage: 5,
     },
     passive: [
       { trigger: 'ally_activate', effect: 'self_charge', value: 1,
@@ -62,9 +62,9 @@ window.CARDS = [
     lore: '誰都需要她，沒人記得她的名字。',
     active: {
       cd: 5,
-      desc: '給我方 2 個隨機角色施加【加速】狀態 2 秒。',
-      effect: 'speed_random_allies',
-      value: 2, count: 2,
+      desc: '給我方 2 個隨機角色施加【加速】2 秒，並對敵人造成 5 點傷害。',
+      effect: 'speed_random_allies_plus_damage',
+      value: 2, count: 2, damage: 5,
     },
     passive: [],
     keywords: ['加速'],
@@ -171,7 +171,12 @@ window.CARDS = [
     cost: 4,
     type: 'buff',
     lore: '什麼都懂，什麼都不做，但就是讓你變強。',
-    active: null,
+    active: {
+      cd: 8,
+      desc: '對敵人造成 8 點傷害。',
+      effect: 'damage',
+      value: 8,
+    },
     passive: [
       { trigger: 'static', effect: 'adjacent_attack_count_up', value: 1,
         desc: '相鄰角色的攻擊次數 +1。' },
@@ -207,9 +212,9 @@ window.CARDS = [
     lore: '規則就是護盾，規則就是武器。',
     active: {
       cd: 6,
-      desc: '每有 1 個上陣的角色，獲得 10 點護盾。',
-      effect: 'shield_per_ally',
-      value: 10,
+      desc: '每有 1 個上陣角色獲得 10 點護盾，並對敵人造成 5 點傷害。',
+      effect: 'shield_per_ally_plus_damage',
+      value: 10, damage: 5,
     },
     passive: [],
     keywords: ['護盾'],
@@ -224,9 +229,9 @@ window.CARDS = [
     lore: '你的權益，他來保護。',
     active: {
       cd: 5,
-      desc: '獲得 10 點護盾。',
-      effect: 'shield_self',
-      value: 10,
+      desc: '獲得 10 點護盾，並對敵人造成 5 點傷害。',
+      effect: 'shield_self_plus_damage',
+      value: 10, damage: 5,
     },
     passive: [
       { trigger: 'ally_activate', effect: 'self_charge', value: 1,
@@ -244,9 +249,9 @@ window.CARDS = [
     lore: '加速我方，減速敵人，賬單另計。',
     active: {
       cd: 6,
-      desc: '給我方 1 個角色施加【加速】2 秒；給敵方 1 個角色施加【減速】2 秒。',
-      effect: 'speed_one_slow_one',
-      speedVal: 2, slowVal: 2,
+      desc: '給我方 1 個角色加速 2 秒；給敵方 1 個角色減速 2 秒；對敵人造成 8 點傷害。',
+      effect: 'speed_one_slow_one_plus_damage',
+      speedVal: 2, slowVal: 2, damage: 8,
     },
     passive: [
       { trigger: 'static', effect: 'attack_count_per_enemy_pairs',
@@ -266,9 +271,9 @@ window.CARDS = [
     lore: '拒絕你的人資，笑容比冰還冷。',
     active: {
       cd: 8,
-      desc: '對敵方 1 個角色施加【冰凍】狀態 2 秒。',
-      effect: 'freeze',
-      value: 2,
+      desc: '冰凍敵方所有角色 2 秒，並造成 10 點傷害。',
+      effect: 'freeze_plus_damage',
+      value: 2, damage: 10,
     },
     passive: [],
     keywords: ['冰凍'],
@@ -283,9 +288,9 @@ window.CARDS = [
     lore: '提供免費瑜伽課，無法抵消加班傷害。',
     active: {
       cd: 7,
-      desc: '為我方血量最低的角色恢復 30 點生命值（實為玩家HP）。',
-      effect: 'heal_player',
-      value: 30,
+      desc: '恢復 30 點生命值，並對敵人造成 5 點傷害。',
+      effect: 'heal_plus_damage',
+      value: 30, damage: 5,
     },
     passive: [],
     keywords: ['治療'],
@@ -320,9 +325,9 @@ window.CARDS = [
     lore: '事必躬親，萬事皆管，效率負增長。',
     active: {
       cd: 10,
-      desc: '給我方所有角色施加【加速】2 秒，攻擊次數本回合 +1。',
-      effect: 'speed_all_allies_plus_hits',
-      value: 2,
+      desc: '給我方所有角色加速 2 秒，並對敵人造成 15 點傷害。',
+      effect: 'speed_all_plus_damage',
+      value: 2, damage: 15,
     },
     passive: [
       { trigger: 'static', effect: 'adjacent_cd_reduction', value: 0.15,
@@ -357,9 +362,9 @@ window.CARDS = [
     lore: '舉報信已發出，HR正在路上。',
     active: {
       cd: 5,
-      desc: '對敵方全體釋放 1 層【剧毒】。',
-      effect: 'poison_all',
-      value: 1,
+      desc: '對敵方全體釋放 1 層【剧毒】，並造成 6 點傷害。',
+      effect: 'poison_all_plus_damage',
+      value: 1, damage: 6,
     },
     passive: [],
     keywords: ['剧毒'],
@@ -374,9 +379,9 @@ window.CARDS = [
     lore: '預算削減50%，護盾依然堅不可摧。',
     active: {
       cd: 8,
-      desc: '給我方所有角色施加 20 層護盾。',
-      effect: 'shield_all',
-      value: 20,
+      desc: '給我方所有角色施加 20 層護盾，並造成 12 點傷害。',
+      effect: 'shield_all_plus_damage',
+      value: 20, damage: 12,
     },
     passive: [
       { trigger: 'static', effect: 'adjacent_attack_count_up', value: 1,
