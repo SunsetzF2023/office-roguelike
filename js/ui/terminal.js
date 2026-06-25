@@ -7,7 +7,10 @@ window.UI = (() => {
 
   // ── Screen switching ─────────────────────────────────────────
   function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.remove('active');
+      s.style.display = '';  // clear any inline display override
+    });
     const el = document.getElementById(`screen-${id}`);
     if (el) el.classList.add('active');
   }

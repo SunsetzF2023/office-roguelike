@@ -214,20 +214,55 @@ window.Game = (() => {
     const battlePlayer = window.BattleEngine.getPlayer();
     st.hp = Math.max(0, Math.round(battlePlayer.hp));
 
-    // Show result briefly then continue
+    // Show win/lose overlay on battle screen
+    const battleEl = document.getElementById('screen-battle');
+    if (battleEl) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position:absolute;inset:0;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;gap:16px;
+        background:rgba(0,0,0,0.75);z-index:999;
+      `;
+      const isWin = result === 'win';
+      overlay.innerHTML = `
+        <div style="font-family:var(--font-display);font-size:56px;
+                    color:${isWin?'var(--green-bright)':'var(--red)'};
+                    text-shadow:0 0 24px ${isWin?'var(--green)':'var(--red)'}">
+          ${isWin ? '✅ 勝利' : '💀 失敗'}
+        </div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          ${isWin ? '正在繼續...' : '遊戲結束...'}
+        </div>
+      `;
+      battleEl.style.position = 'relative';
+      battleEl.appendChild(overlay);
+    }
+
+    // Navigate after delay
     setTimeout(() => {
-      if (result.result === 'lose') {
+      // Clear battle screen inline styles so showScreen works
+      const bEl = document.getElementById('screen-battle');
+      if (bEl) {
+        bEl.style.flexDirection = '';
+        bEl.style.padding = '';
+        bEl.style.gap = '';
+        bEl.style.height = '';
+        bEl.style.boxSizing = '';
+        bEl.style.position = '';
+      }
+
+      if (result === 'lose') {
         window.UI.showScreen('gameover');
         window.ScreenGameover.render(false);
         return;
       }
-      if (isBoss && result.result === 'win') {
+      if (isBoss && result === 'win') {
         window.UI.showScreen('gameover');
         window.ScreenGameover.render(true);
         return;
       }
       _checkUpgradeOrMap();
-    }, 2000);
+    }, 2200);
   }
 
   // ── Upgrade flow ─────────────────────────────────────────────

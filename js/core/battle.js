@@ -483,7 +483,7 @@ window.BattleEngine = (() => {
       _log(`⏱ 超時`, 'log-status');
     }
     st.battleCount++;
-    _onEnd({result, player, enemy});
+    _onEnd(result);  // pass string: 'win' | 'lose' | 'timeout'
   }
 
   function _log(m,c='') { _onLog&&_onLog(m,c); }

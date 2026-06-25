@@ -122,7 +122,12 @@ window.ScreenBattle = (() => {
     const st = window.State.get();
     const el = document.getElementById('screen-battle');
 
-    el.style.cssText = 'display:flex;flex-direction:column;padding:10px;gap:8px;height:100%;box-sizing:border-box;';
+    // IMPORTANT: do NOT set display via inline style — let .screen.active CSS handle it
+    el.style.flexDirection = 'column';
+    el.style.padding = '10px';
+    el.style.gap = '8px';
+    el.style.height = '100%';
+    el.style.boxSizing = 'border-box';
     el.innerHTML = `
       <!-- TOP: enemy -->
       <div id="b-enemy-area" style="display:flex;flex-direction:column;align-items:center;gap:6px">
