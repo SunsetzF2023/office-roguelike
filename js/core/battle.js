@@ -1,104 +1,104 @@
 // ═══════════════════════════════════════
-// js/core/battle.js  —  combat engine (unified sim time)
+// js/core/battle.js  —  combat engine v3
+// Per-slot speed/slow/freeze; 2×6 grid UI data
 // ═══════════════════════════════════════
 'use strict';
 
 window.BattleEngine = (() => {
 
-  const SE = window.StatusEngine;
-  const TICK_MS    = 100;
-  const BURN_TICK  = 500;
-  const POISON_TICK= 1000;
-  const MAX_SIM_MS = 120_000;
+  const TICK_MS     = 100;
+  const BURN_TICK   = 500;
+  const POISON_TICK = 1000;
+  const MAX_SIM_MS  = 90_000;
 
-  let _running    = false;
-  let _speed      = 1;
-  let _intervalId = null;
-  let _onLog = null, _onTick = null, _onEnd = null;
+  let _running = false, _speed = 1, _tid = null;
+  let _onLog, _onTick, _onEnd;
+  let player, enemy;
+  let playerSlots, enemySlots;
+  let burnTimer, poisonTimer, simTime;
 
-  let player = null, enemy = null;
-  let playerSlots = [], enemySlots = [];
-  let burnTimer = 0, poisonTimer = 0, simTime = 0;
-
-  // ── Setup ─────────────────────────────────────────────────────
-  function setup(playerBag, enemyDef, playerHp, playerMaxHp, callbacks) {
-    _onLog  = callbacks.onLog  || (() => {});
-    _onTick = callbacks.onTick || (() => {});
-    _onEnd  = callbacks.onEnd  || (() => {});
-
-    const st = window.State.get();
-
-    player = _makeCombatant(playerHp, playerMaxHp, 'YOU');
-    enemy  = _makeCombatant(1500, 1500, enemyDef.name || 'ENEMY');
-
-    playerSlots = _buildPlayerSlots(playerBag, st.instances);
-    enemySlots  = _buildEnemySlots(enemyDef.bag);
-
-    _applyStaticPassives(playerSlots, 'player');
-    _applyStaticPassives(enemySlots,  'enemy');
-
-    burnTimer = 0; poisonTimer = 0; simTime = 0;
-    _log(`⚡ 戰鬥開始：YOU vs ${enemy.name}`, 'log-status');
+  // ─────────────────────────────────────────────────────────────
+  // COMBATANT  (shared HP/shield/poison/burn for each side)
+  // ─────────────────────────────────────────────────────────────
+  function _mkComb(hp, name) {
+    return { name, hp, maxHp: hp, shield: 0,
+             poisonLayers: 0, burnStacks: [] };
   }
 
-  // ── Combatant ─────────────────────────────────────────────────
-  function _makeCombatant(hp, maxHp, name) {
+  // ─────────────────────────────────────────────────────────────
+  // SLOT  (one card in battle; carries its own CD + status)
+  // ─────────────────────────────────────────────────────────────
+  function _mkSlot(cardId, def, col, row, instanceId, overrides) {
+    const cdMax = def.active ? def.active.cd * 1000 : Infinity;
     return {
-      name, hp, maxHp,
-      shield: 0,
-      poisonLayers: 0,
-      burnStacks: [],     // [{layers, addedAtMs}]  uses simTime
-      speedUntil: -1,     // simTime ms
-      slowUntil:  -1,
-      frozenUntil:-1,
+      instanceId, cardId, def, col, row,
+      cdMax,
+      cdCurrent: cdMax * (0.1 + Math.random() * 0.5),
+      attackCount: 1,
       damageBonus: 0,
+      extraEffects: [],
+      // Per-slot status (in sim-ms)
+      speedUntil:  -1,
+      slowUntil:   -1,
+      frozenUntil: -1,
+      _firstStrikeDone: false,
+      ...overrides,
     };
   }
 
-  // ── Slot builders ─────────────────────────────────────────────
+  function _cdMult(slot) {
+    if (slot.frozenUntil >= simTime) return 0;
+    let m = 1;
+    if (slot.speedUntil >= simTime) m *= 2;
+    if (slot.slowUntil  >= simTime) m *= 0.5;
+    return m;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SETUP
+  // ─────────────────────────────────────────────────────────────
+  function setup(playerBag, enemyDef, playerHp, playerMaxHp, cbs) {
+    _onLog = cbs.onLog || (()=>{}); _onTick = cbs.onTick || (()=>{}); _onEnd = cbs.onEnd || (()=>{});
+    const st = window.State.get();
+
+    player = _mkComb(playerHp, 'YOU');   player.maxHp = playerMaxHp;
+    enemy  = _mkComb(1500, enemyDef.name || 'ENEMY');
+
+    playerSlots = _buildPlayerSlots(playerBag, st.instances);
+    enemySlots  = _buildEnemySlots(enemyDef.bag || []);
+
+    _applyStatic(playerSlots, enemySlots);
+    _applyStatic(enemySlots,  playerSlots);
+
+    burnTimer = 0; poisonTimer = 0; simTime = 0;
+    _log(`⚡ 戰鬥：YOU vs ${enemy.name}`, 'log-status');
+  }
+
   function _buildPlayerSlots(bag, instances) {
     return bag.map(s => {
       const inst = instances[s.instanceId];
       if (!inst) return null;
       const def = window.getCard(inst.cardId);
       if (!def) return null;
-      const cdMax = def.active ? def.active.cd * 1000 : Infinity;
-      return {
-        instanceId: s.instanceId,
-        cardId: inst.cardId, def,
-        col: s.col, row: s.row,
-        cdMax,
-        cdCurrent: def.active ? cdMax * (0.1 + Math.random() * 0.5) : Infinity,
-        attackCount: 1 + (inst.attackCountBonus || 0),
+      return _mkSlot(inst.cardId, def, s.col, s.row, s.instanceId, {
         damageBonus: inst.damageBonus || 0,
         extraEffects: inst.extraEffects || [],
-        _firstStrikeDone: false,
-      };
+      });
     }).filter(Boolean);
   }
 
-  function _buildEnemySlots(bagConfig) {
-    return (bagConfig || []).map((s, i) => {
+  function _buildEnemySlots(bagCfg) {
+    return bagCfg.map((s, i) => {
       const def = window.getCard(s.cardId);
       if (!def || !def.active) return null;
-      const cdMax = def.active.cd * 1000;
-      return {
-        instanceId: `e_${s.cardId}_${i}`,
-        cardId: s.cardId, def,
-        col: s.col, row: s.row,
-        cdMax,
-        cdCurrent: cdMax * (0.1 + Math.random() * 0.5),
-        attackCount: 1,
-        damageBonus: 0,
-        extraEffects: [],
-        _firstStrikeDone: false,
-      };
+      return _mkSlot(s.cardId, def, s.col, s.row, `e_${s.cardId}_${i}`, {});
     }).filter(Boolean);
   }
 
-  // ── Static passives ───────────────────────────────────────────
-  function _applyStaticPassives(slots, side) {
-    const oppSlots = side === 'player' ? enemySlots : playerSlots;
+  // ─────────────────────────────────────────────────────────────
+  // STATIC PASSIVES  (computed once at battle start)
+  // ─────────────────────────────────────────────────────────────
+  function _applyStatic(slots, oppSlots) {
     for (const slot of slots) {
       if (!slot.def.passive) continue;
       for (const p of slot.def.passive) {
@@ -108,13 +108,16 @@ window.BattleEngine = (() => {
             slot.attackCount += slots.filter(s => s.def.type === p.typeTag).length;
             break;
           case 'attack_count_per_adjacent_type':
-            slot.attackCount += _adjSlots(slot, slots).filter(s => s.def.type === p.typeTag).length;
+            slot.attackCount += _adj(slot, slots).filter(s => s.def.type === p.typeTag).length;
             break;
           case 'adjacent_attack_count_up':
-            _adjSlots(slot, slots).forEach(a => a.attackCount += p.value);
+            _adj(slot, slots).forEach(a => a.attackCount += (p.value||1));
             break;
           case 'adjacent_cd_reduction':
-            _adjSlots(slot, slots).forEach(a => { a.cdMax *= (1 - p.value); a.cdCurrent = Math.min(a.cdCurrent, a.cdMax); });
+            _adj(slot, slots).forEach(a => {
+              a.cdMax = Math.max(500, a.cdMax * (1 - p.value));
+              a.cdCurrent = Math.min(a.cdCurrent, a.cdMax);
+            });
             break;
           case 'attack_count_per_enemy_pairs':
             slot.attackCount += Math.floor(oppSlots.length / 2);
@@ -124,13 +127,15 @@ window.BattleEngine = (() => {
     }
   }
 
-  // ── Adjacent helper ───────────────────────────────────────────
-  function _adjSlots(slot, slots) {
+  // ─────────────────────────────────────────────────────────────
+  // ADJACENCY  (physical grid adjacency, same as bag)
+  // ─────────────────────────────────────────────────────────────
+  function _adj(slot, slots) {
     return slots.filter(s => {
       if (s.instanceId === slot.instanceId) return false;
       for (let a = 0; a < slot.def.size; a++)
         for (let b = 0; b < s.def.size; b++) {
-          const dc = Math.abs((slot.col+a)-(s.col+b));
+          const dc = Math.abs((slot.col+a) - (s.col+b));
           const dr = Math.abs(slot.row - s.row);
           if ((dc===1&&dr===0)||(dc===0&&dr===1)) return true;
         }
@@ -138,325 +143,296 @@ window.BattleEngine = (() => {
     });
   }
 
-  // ── CD speed (uses simTime) ────────────────────────────────────
-  function _cdMult(comb) {
-    if (comb.frozenUntil >= simTime) return 0;
-    let m = 1;
-    if (comb.speedUntil >= simTime) m *= 2;
-    if (comb.slowUntil  >= simTime) m *= 0.5;
-    return m;
-  }
-
-  // ── Main tick ─────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // TICK
+  // ─────────────────────────────────────────────────────────────
   function tick() {
-    const dt = TICK_MS;               // real tick = 100ms
-    const step = dt * _speed;         // sim advance per real tick
+    const step = TICK_MS * _speed;
     simTime += step;
-
     if (simTime > MAX_SIM_MS) { endBattle('timeout'); return; }
 
-    // Advance CDs
-    _advanceSlots(playerSlots, player, enemy, step);
-    _advanceSlots(enemySlots,  enemy,  player, step);
+    _advSlots(playerSlots, player, enemy, step);
+    _advSlots(enemySlots,  enemy,  player, step);
 
-    // Burn (every BURN_TICK sim-ms)
     burnTimer += step;
     while (burnTimer >= BURN_TICK) {
       burnTimer -= BURN_TICK;
-      const pd = _tickBurn(player);
-      const ed = _tickBurn(enemy);
-      if (pd > 0) _log(`🔥 YOU 受到 ${pd} 點燃燒傷害`, 'log-fire');
-      if (ed > 0) _log(`🔥 ${enemy.name} 受到 ${ed} 點燃燒傷害`, 'log-fire');
+      const pd = _tickBurn(player), ed = _tickBurn(enemy);
+      if (pd>0) _log(`🔥 YOU 受到 ${pd} 燃燒傷害`, 'log-fire');
+      if (ed>0) _log(`🔥 ${enemy.name} 受到 ${ed} 燃燒傷害`, 'log-fire');
     }
-
-    // Poison (every POISON_TICK sim-ms)
     poisonTimer += step;
     while (poisonTimer >= POISON_TICK) {
       poisonTimer -= POISON_TICK;
-      const pd = _tickPoison(player);
-      const ed = _tickPoison(enemy);
-      if (pd > 0) _log(`☠ YOU 受到 ${pd} 點劇毒傷害`, 'log-poison');
-      if (ed > 0) _log(`☠ ${enemy.name} 受到 ${ed} 點劇毒傷害`, 'log-poison');
+      const pd = _tickPoison(player), ed = _tickPoison(enemy);
+      if (pd>0) _log(`☠ YOU 受到 ${pd} 剧毒傷害`, 'log-poison');
+      if (ed>0) _log(`☠ ${enemy.name} 受到 ${ed} 剧毒傷害`, 'log-poison');
     }
 
     if (player.hp <= 0) { endBattle('lose'); return; }
     if (enemy.hp  <= 0) { endBattle('win');  return; }
-
     _onTick({ player, enemy, playerSlots, enemySlots, simTime });
   }
 
-  function _advanceSlots(slots, self, opp, step) {
-    const mult = _cdMult(self);
-    if (mult === 0) return;
+  function _advSlots(slots, self, opp, step) {
     for (const slot of slots) {
       if (!slot.def.active) continue;
-      slot.cdCurrent -= step * mult;
+      const m = _cdMult(slot);
+      if (m === 0) continue;
+      slot.cdCurrent -= step * m;
       if (slot.cdCurrent <= 0) {
         slot.cdCurrent = slot.cdMax;
         for (let i = 0; i < slot.attackCount; i++)
-          _activate(slot, self, opp, slots);
+          _activate(slot, slots, self, opp);
       }
     }
   }
 
-  // ── Skill activation ─────────────────────────────────────────
-  function _activate(slot, self, opp, allSlots) {
-    const def = slot.def;
-    const act = def.active;
+  // ─────────────────────────────────────────────────────────────
+  // ACTIVATE
+  // ─────────────────────────────────────────────────────────────
+  function _activate(slot, allSlots, self, opp) {
+    const act = slot.def.active;
+    const tdmg = (act.value || 0) + (slot.damageBonus || 0);
 
-    // Trigger passive: ally_activate on siblings
+    // Notify passive triggers on allies
     for (const s of allSlots) {
       if (s.instanceId === slot.instanceId) continue;
-      _notifyPassive('ally_activate', s, slot, allSlots, self);
+      _passiveEvent('ally_activate', s, slot, allSlots, self);
     }
-    // Adjacent_activate
-    for (const a of _adjSlots(slot, allSlots))
-      _notifyPassive('adjacent_activate', a, slot, allSlots, self);
-
-    const totalDmg = (act.value || 0) + (slot.damageBonus || 0);
+    for (const a of _adj(slot, allSlots))
+      _passiveEvent('adjacent_activate', a, slot, allSlots, self);
 
     switch (act.effect) {
+
+      // ── Direct damage ──────────────────────────────────────
       case 'damage':
       case 'damage_scaling': {
-        const d = _dmg(opp, totalDmg);
-        _log(`⚡ ${def.name} → ${opp.name} 造成 ${d} 傷害`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg);
+        _log(`⚡ ${slot.def.name} → ${opp.name} 造成 ${d} 傷害`, 'log-dmg');
+        _extra(slot, opp, d); break;
       }
       case 'damage_hp_scaling': {
-        const val = totalDmg * (self.hp/self.maxHp < 0.5 ? 2 : 1);
-        const d = _dmg(opp, val);
-        _log(`⚡ ${def.name} → ${opp.name} 造成 ${d} 傷害`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg * (self.hp/self.maxHp < 0.5 ? 2 : 1));
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害`, 'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_if_speed': {
-        const val = totalDmg + (self.speedUntil >= simTime ? (act.bonusIfSpeed||0) : 0);
-        const d = _dmg(opp, val);
-        _log(`⚡ ${def.name} → ${opp.name} 造成 ${d} 傷害`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const bonus = slot.speedUntil >= simTime ? (act.bonusIfSpeed||0) : 0;
+        const d = _dmg(opp, tdmg + bonus);
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害${bonus?` (+${bonus}加速)`:''}`,'log-dmg');
+        _extra(slot,opp,d); break;
       }
       case 'damage_plus_per_enemy_shield': {
-        const val = totalDmg + opp.shield * (act.perShield||0);
-        const d = _dmg(opp, val);
-        _log(`⚡ ${def.name} → ${opp.name} 造成 ${d} 傷害`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg + opp.shield*(act.perShield||0));
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_plus_slow': {
-        const d = _dmg(opp, totalDmg);
-        _slow(opp, act.slowDur||2);
-        _log(`⚡ ${def.name} 造成 ${d} 傷害 + 減速 ${act.slowDur||2}s`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg); _slowSlot(opp, allSlots, act.slowDur||2);
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 + 減速`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_plus_slow_all': {
-        const d = _dmg(opp, totalDmg);
-        _slow(opp, act.slowDur||3);
-        _log(`⚡ ${def.name} 造成 ${d} 傷害 + 全體減速`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg); _slowSlot(opp, allSlots, act.slowDur||3);
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 + 全體減速`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_vs_slowed': {
-        const slowed = opp.slowUntil >= simTime || opp.frozenUntil >= simTime;
-        const d = _dmg(opp, totalDmg * (slowed ? 2 : 1));
-        _log(`⚡ ${def.name} 造成 ${d} 傷害${slowed?' (×2)':''}`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const sl = enemySlots.some(s=>s.slowUntil>=simTime||s.frozenUntil>=simTime);
+        const d = _dmg(opp, tdmg * (sl?2:1));
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害${sl?' (×2)':''}`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_first_strike': {
-        const bonus = slot._firstStrikeDone ? 0 : (act.firstBonus||0);
+        const b = slot._firstStrikeDone ? 0 : (act.firstBonus||0);
         slot._firstStrikeDone = true;
-        const d = _dmg(opp, totalDmg + bonus);
-        _log(`⚡ ${def.name} 造成 ${d} 傷害${bonus?' (首擊)':''}`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg+b);
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害${b?' (首擊)':''}`,'log-dmg'); _extra(slot,opp,d); break;
       }
       case 'damage_cd_grow': {
-        const d = _dmg(opp, totalDmg);
-        slot.cdMax += (act.cdGrow||500);
-        _log(`⚡ ${def.name} 造成 ${d} 傷害（CD+）`, 'log-dmg');
-        _extra(slot, opp, d);
-        break;
+        const d = _dmg(opp, tdmg); slot.cdMax += (act.cdGrow||500);
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 (CD↑)`,'log-dmg'); _extra(slot,opp,d); break;
       }
-      case 'damage_scaling_per_battle':
-        // handled on endBattle; same as damage for now
-        { const d = _dmg(opp, totalDmg); _log(`⚡ ${def.name} 造成 ${d} 傷害`, 'log-dmg'); _extra(slot, opp, d); break; }
-      case 'poison':
-      case 'poison_all':
-        _addPoison(opp, act.value);
-        _log(`☠ ${def.name} → ${opp.name} 施加 ${act.value} 層剧毒`, 'log-poison');
-        break;
+
+      // ── DoT ───────────────────────────────────────────────
+      case 'poison': case 'poison_all':
+        opp.poisonLayers += act.value;
+        _log(`☠ ${slot.def.name} → ${opp.name} +${act.value}剧毒`,'log-poison'); break;
       case 'burn':
-        _addBurn(opp, act.value);
-        _log(`🔥 ${def.name} → ${opp.name} 施加 ${act.value} 層燃燒`, 'log-fire');
-        break;
+        opp.burnStacks.push({layers:act.value, addedAtMs:simTime});
+        _log(`🔥 ${slot.def.name} → ${opp.name} +${act.value}燃燒`,'log-fire'); break;
       case 'damage_plus_burn_pct': {
-        const d = _dmg(opp, totalDmg);
-        const bl = Math.max(1, Math.round(totalDmg * (act.burnPct||0.2)));
-        _addBurn(opp, bl);
-        _log(`⚡ ${def.name} 造成 ${d} 傷害 + ${bl} 層燃燒`, 'log-fire');
-        break;
+        const d = _dmg(opp, tdmg);
+        const bl = Math.max(1, Math.round(tdmg*(act.burnPct||0.2)));
+        opp.burnStacks.push({layers:bl, addedAtMs:simTime});
+        _log(`⚡ ${slot.def.name} 造成 ${d} 傷害 +${bl}燃燒`,'log-fire'); break;
       }
+
+      // ── Speed (per-slot, only affects specified targets) ───
       case 'speed_adjacent':
-        _adjSlots(slot, allSlots).forEach(() => _speed_comb(self, act.value));
-        _log(`💨 ${def.name} 相鄰加速 ${act.value}s`, 'log-status');
-        break;
+        // Apply speed only to adjacent slots
+        _adj(slot, allSlots).forEach(a => _applySpeedSlot(a, act.value));
+        _log(`💨 ${slot.def.name} 相鄰卡牌加速 ${act.value}s`,'log-status'); break;
+
       case 'speed_random_allies': {
-        const n = Math.min(act.count||2, allSlots.length);
-        for (let i=0;i<n;i++) _speed_comb(self, act.value);
-        _log(`💨 ${def.name} 隨機 ${n} 角色加速`, 'log-status');
-        break;
+        // Pick random ally slots (not self)
+        const pool = allSlots.filter(s=>s.instanceId!==slot.instanceId);
+        const n = Math.min(act.count||2, pool.length);
+        pool.sort(()=>Math.random()-0.5).slice(0,n).forEach(s=>_applySpeedSlot(s,act.value));
+        _log(`💨 ${slot.def.name} 隨機 ${n} 個卡牌加速`,'log-status'); break;
       }
-      case 'speed_one_slow_one':
-        _speed_comb(self, act.speedVal||2);
-        _slow(opp, act.slowVal||2);
-        _log(`💨 ${def.name} 加速我方/減速敵方`, 'log-status');
-        break;
+      case 'speed_one_slow_one': {
+        // Speed: one random ally slot; Slow: one random enemy slot
+        const ally = allSlots.filter(s=>s.instanceId!==slot.instanceId);
+        if (ally.length) _applySpeedSlot(ally[Math.floor(Math.random()*ally.length)], act.speedVal||2);
+        const oppSl = (slot.instanceId.startsWith('e_') ? playerSlots : enemySlots);
+        if (oppSl.length) _applySlowSlot(oppSl[Math.floor(Math.random()*oppSl.length)], act.slowVal||2);
+        _log(`💨 ${slot.def.name} 加速我方/減速敵方`,'log-status'); break;
+      }
       case 'speed_all_allies_plus_hits':
-        _speed_comb(self, act.value);
-        _log(`💨 ${def.name} 全體加速`, 'log-status');
-        break;
+        allSlots.forEach(s => _applySpeedSlot(s, act.value));
+        _log(`💨 ${slot.def.name} 全體加速 ${act.value}s`,'log-status'); break;
+
+      // ── Shield/Heal ────────────────────────────────────────
       case 'shield_self':
-        _addShield(self, act.value);
-        _log(`🛡 ${def.name} 獲得 ${act.value} 護盾`, 'log-status');
-        break;
+        self.shield += Math.round(act.value);
+        _log(`🛡 ${slot.def.name} 獲得 ${act.value} 護盾`,'log-status'); break;
       case 'shield_per_ally':
-        _addShield(self, act.value * allSlots.length);
-        _log(`🛡 ${def.name} 獲得 ${act.value * allSlots.length} 護盾`, 'log-status');
-        break;
+        self.shield += Math.round(act.value * allSlots.length);
+        _log(`🛡 ${slot.def.name} 獲得 ${act.value*allSlots.length} 護盾`,'log-status'); break;
       case 'shield_all':
-        _addShield(self, act.value);
-        _log(`🛡 ${def.name} 全體護盾 ${act.value}`, 'log-status');
-        break;
-      case 'heal_player':
-        { const h = Math.min(act.value, self.maxHp - self.hp);
-          self.hp += h;
-          _log(`💚 ${def.name} 恢復 ${h} HP`, 'log-heal'); break; }
+        self.shield += Math.round(act.value);
+        _log(`🛡 ${slot.def.name} 護盾 +${act.value}`,'log-status'); break;
+      case 'heal_player': {
+        const h = Math.min(act.value, self.maxHp-self.hp); self.hp += h;
+        _log(`💚 ${slot.def.name} 恢復 ${h} HP`,'log-heal'); break;
+      }
       case 'freeze':
-        _freeze(opp, act.value);
-        _log(`❄ ${def.name} → ${opp.name} 冰凍 ${act.value}s`, 'log-status');
-        break;
+        (slot.instanceId.startsWith('e_') ? playerSlots : enemySlots)
+          .forEach(s => _applyFreezeSlot(s, act.value));
+        _log(`❄ ${slot.def.name} 冰凍對方 ${act.value}s`,'log-status'); break;
     }
   }
 
-  // ── Status helpers (sim-time based) ───────────────────────────
-  function _speed_comb(c, sec) { c.speedUntil  = Math.max(c.speedUntil,  simTime + sec*1000); }
-  function _slow(c, sec)       { c.slowUntil   = Math.max(c.slowUntil,   simTime + sec*1000); }
-  function _freeze(c, sec)     { c.frozenUntil = Math.max(c.frozenUntil, simTime + sec*1000); }
-  function _addShield(c, n)    { c.shield += Math.max(0, Math.round(n)); }
-  function _addPoison(c, n)    { c.poisonLayers += Math.round(n); }
-  function _addBurn(c, n)      { c.burnStacks.push({ layers: Math.round(n), addedAtMs: simTime }); }
+  // Per-slot speed helpers
+  function _applySpeedSlot(s, sec)  { s.speedUntil  = Math.max(s.speedUntil,  simTime + sec*1000); }
+  function _applySlowSlot(s, sec)   { s.slowUntil   = Math.max(s.slowUntil,   simTime + sec*1000); }
+  function _applyFreezeSlot(s, sec) { s.frozenUntil = Math.max(s.frozenUntil, simTime + sec*1000); }
 
+  function _slowSlot(opp, oppSlots, sec) {
+    const target = oppSlots || (opp === enemy ? enemySlots : playerSlots);
+    target.forEach(s => _applySlowSlot(s, sec));
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // DAMAGE / DoT
+  // ─────────────────────────────────────────────────────────────
   function _dmg(c, amount, type='physical') {
     let d = Math.max(0, Math.round(amount));
     if (d === 0) return 0;
     if (type === 'burn') {
       if (c.shield > 0) d = Math.round(d * 0.5);
     } else if (type !== 'poison') {
-      const abs = Math.min(c.shield, d);
-      c.shield -= abs; d -= abs;
+      const abs = Math.min(c.shield, d); c.shield -= abs; d -= abs;
     }
     c.hp = Math.max(0, c.hp - d);
     return d;
   }
 
   function _tickBurn(c) {
-    // Each stack: damage = layers each 0.5s, layers decrease by 1 each 1s
     let total = 0;
-    const alive = [];
-    for (const s of c.burnStacks) {
-      const elapsed = (simTime - s.addedAtMs) / 1000;
-      const layersNow = Math.max(0, s.layers - Math.floor(elapsed));
-      if (layersNow > 0) { alive.push(s); total += layersNow; }
-    }
-    c.burnStacks = alive;
+    c.burnStacks = c.burnStacks.filter(s => {
+      const layersNow = Math.max(0, s.layers - Math.floor((simTime - s.addedAtMs)/1000));
+      total += layersNow;
+      return layersNow > 0;
+    });
     return total > 0 ? _dmg(c, total, 'burn') : 0;
   }
-
   function _tickPoison(c) {
-    if (c.poisonLayers <= 0) return 0;
-    return _dmg(c, c.poisonLayers, 'poison');
+    return c.poisonLayers > 0 ? _dmg(c, c.poisonLayers, 'poison') : 0;
   }
 
-  // ── Passive notification ──────────────────────────────────────
-  function _notifyPassive(trigger, slot, activator, allSlots, self) {
+  // ─────────────────────────────────────────────────────────────
+  // PASSIVES (dynamic triggers)
+  // ─────────────────────────────────────────────────────────────
+  function _passiveEvent(trigger, slot, activator, allSlots, self) {
     if (!slot.def.passive) return;
     for (const p of slot.def.passive) {
       if (p.trigger !== trigger) continue;
       if (p.effect === 'self_charge')    slot.cdCurrent = Math.max(0, slot.cdCurrent - p.value*1000);
-      if (p.effect === 'self_speed')     _speed_comb(self, p.value);
+      if (p.effect === 'self_speed')     _applySpeedSlot(slot, p.value);
       if (p.effect === 'self_damage_up') slot.damageBonus += p.value;
     }
   }
 
-  // ── Merge extra effects ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // MERGE EXTRA EFFECTS
+  // ─────────────────────────────────────────────────────────────
   function _extra(slot, opp, baseDmg) {
-    for (const fx of (slot.extraEffects || [])) {
+    for (const fx of (slot.extraEffects||[])) {
       switch(fx) {
-        case 'damage_extra': { const b=Math.round(baseDmg*0.3); _dmg(opp,b); _log(`  ✨ 合成 +${b}傷害`,'log-dmg'); break; }
-        case 'poison_extra': _addPoison(opp,2); _log(`  ✨ 合成附加 2層剧毒`,'log-poison'); break;
-        case 'burn_extra':   _addBurn(opp,2);   _log(`  ✨ 合成附加 2層燃燒`,'log-fire'); break;
-        case 'cd_reduce':    slot.cdCurrent = Math.max(0, slot.cdCurrent - 1000); break;
+        case 'damage_extra': { const b=Math.round(baseDmg*0.3); _dmg(opp,b); _log(`  ✨ +${b}傷害`,'log-dmg'); break; }
+        case 'poison_extra': opp.poisonLayers+=2; _log(`  ✨ +2剧毒`,'log-poison'); break;
+        case 'burn_extra':   opp.burnStacks.push({layers:2,addedAtMs:simTime}); _log(`  ✨ +2燃燒`,'log-fire'); break;
+        case 'cd_reduce':    slot.cdCurrent = Math.max(0, slot.cdCurrent-1000); break;
       }
     }
   }
 
-  // ── End battle ────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // STATUS SNAPSHOT (for UI, uses simTime)
+  // ─────────────────────────────────────────────────────────────
+  function getStatusSnap(c, slots) {
+    const s = [];
+    if (c.shield > 0) s.push({type:'shield', val:c.shield});
+    if (c.poisonLayers > 0) s.push({type:'poison', val:c.poisonLayers});
+    const burn = c.burnStacks.reduce((a,b)=>a+Math.max(0,b.layers-Math.floor((simTime-b.addedAtMs)/1000)),0);
+    if (burn > 0) s.push({type:'burn', val:burn});
+    return s;
+  }
+
+  function getSlotStatusSnap(slot) {
+    const s = [];
+    if (slot.speedUntil  >= simTime) s.push({type:'speed',  val:((slot.speedUntil -simTime)/1000).toFixed(1)});
+    if (slot.slowUntil   >= simTime) s.push({type:'slow',   val:((slot.slowUntil  -simTime)/1000).toFixed(1)});
+    if (slot.frozenUntil >= simTime) s.push({type:'freeze', val:((slot.frozenUntil-simTime)/1000).toFixed(1)});
+    return s;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // END
+  // ─────────────────────────────────────────────────────────────
   function endBattle(result) {
     stop();
     const st = window.State.get();
     if (result === 'win') {
       _log(`✅ 勝利！擊敗 ${enemy.name}`, 'log-win');
       st.wins++;
-      // Persist damage_scaling growth
       for (const slot of playerSlots) {
         const act = slot.def.active;
-        if (act && (act.effect === 'damage_scaling' || act.effect === 'audit') && act.perBattle) {
+        if (act && act.perBattle) {
           const inst = st.instances[slot.instanceId];
           if (inst) inst.damageBonus = (inst.damageBonus||0) + act.perBattle;
         }
       }
-      const gold = 3 + Math.floor(Math.random()*3);
+      const gold = 3 + Math.floor(Math.random()*4);
       window.State.gainGold(gold);
       _log(`💰 獲得 ${gold} 金幣`, 'log-status');
-    } else if (result === 'lose') {
-      _log(`💀 YOU 的HP歸零，失敗`, 'log-lose');
+    } else if (result==='lose') {
+      _log(`💀 YOU HP歸零，失敗`, 'log-lose');
       st.losses++;
     } else {
-      _log(`⏱ 超時平局`, 'log-status');
+      _log(`⏱ 超時`, 'log-status');
     }
     st.battleCount++;
-    _onEnd({ result, player, enemy });
+    _onEnd({result, player, enemy});
   }
 
-  // ── Snapshot for UI ──────────────────────────────────────────
-  function getStatusSnap(c) {
-    const s = [];
-    if (c.shield > 0) s.push({ type:'shield', val: c.shield });
-    if (c.poisonLayers > 0) s.push({ type:'poison', val: c.poisonLayers });
-    const burn = c.burnStacks.reduce((a,b)=>a+Math.max(0,b.layers-Math.floor((simTime-b.addedAtMs)/1000)),0);
-    if (burn > 0) s.push({ type:'burn', val: burn });
-    if (c.speedUntil  >= simTime) s.push({ type:'speed',  val: Math.ceil((c.speedUntil -simTime)/1000) });
-    if (c.slowUntil   >= simTime) s.push({ type:'slow',   val: Math.ceil((c.slowUntil  -simTime)/1000) });
-    if (c.frozenUntil >= simTime) s.push({ type:'freeze', val: Math.ceil((c.frozenUntil-simTime)/1000) });
-    return s;
-  }
-
-  function _log(msg, cls='') { _onLog && _onLog(msg, cls); }
-
-  function start() { if(_running)return; _running=true; _intervalId=setInterval(tick, TICK_MS); }
-  function stop()  { _running=false; if(_intervalId){clearInterval(_intervalId);_intervalId=null;} }
-  function setSpeed(s) { _speed=s; }
-  function getSpeed()  { return _speed; }
+  function _log(m,c='') { _onLog&&_onLog(m,c); }
+  function start() { if(_running)return; _running=true; _tid=setInterval(tick,TICK_MS); }
+  function stop()  { _running=false; if(_tid){clearInterval(_tid);_tid=null;} }
+  function setSpeed(s){_speed=s;} function getSpeed(){return _speed;}
 
   return {
     setup, start, stop, setSpeed, getSpeed,
-    getPlayer: () => player,
-    getEnemy:  () => enemy,
-    getPlayerSlots: () => playerSlots,
-    getEnemySlots:  () => enemySlots,
-    getStatusSnap,
+    getPlayer:()=>player, getEnemy:()=>enemy,
+    getPlayerSlots:()=>playerSlots, getEnemySlots:()=>enemySlots,
+    getStatusSnap, getSlotStatusSnap,
   };
 })();
