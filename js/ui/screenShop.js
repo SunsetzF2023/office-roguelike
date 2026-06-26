@@ -162,7 +162,10 @@ window.ScreenBattle = (() => {
           <button class="btn active" data-spd="1">×1</button>
           <button class="btn" data-spd="2">×2</button>
           <button class="btn" data-spd="3">×3</button>
+          <button class="btn" data-spd="5">×5</button>
+          <button class="btn" data-spd="10" style="color:var(--amber);border-color:var(--amber)">×10</button>
         </div>
+        <span id="b-sim-time" style="font-size:10px;color:var(--text-dim);font-family:var(--font-mono)">0s</span>
       </div>
 
       <!-- BOTTOM: player -->
@@ -234,7 +237,11 @@ window.ScreenBattle = (() => {
 
   // ── Update on each tick ───────────────────────────────────────
   function updateTick(data) {
-    const { player, enemy, playerSlots, enemySlots } = data;
+    const { player, enemy, playerSlots, enemySlots, simTime } = data;
+
+    // Sim time
+    const stEl = document.getElementById('b-sim-time');
+    if (stEl && simTime !== undefined) stEl.textContent = (simTime/1000).toFixed(0)+'s';
 
     // HP
     const ph = document.getElementById('b-player-hp');

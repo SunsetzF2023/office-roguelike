@@ -9,7 +9,7 @@ window.BattleEngine = (() => {
   const TICK_MS     = 100;
   const BURN_TICK   = 500;
   const POISON_TICK = 1000;
-  const MAX_SIM_MS  = 90_000;
+  const MAX_SIM_MS  = 300_000;  // 5分钟模拟时间，基本不会触发
 
   let _running = false, _speed = 1, _tid = null;
   let _onLog, _onTick, _onEnd;
@@ -152,7 +152,15 @@ window.BattleEngine = (() => {
   function tick() {
     const step = TICK_MS * _speed;
     simTime += step;
-    if (simTime > MAX_SIM_MS) { endBattle('timeout'); return; }
+    if (simTime > MAX_SIM_MS) {
+      // 超時：按血量判定勝負
+      if (player.hp >= enemy.hp) {
+        endBattle('win');
+      } else {
+        endBattle('lose');
+      }
+      return;
+    }
 
     _advSlots(playerSlots, player, enemy, step);
     _advSlots(enemySlots,  enemy,  player, step);
