@@ -10,7 +10,7 @@ window.Game = (() => {
     window.State.reset();
     const st = window.State.get();
 
-    // Give 2 starter cards
+    // Give 2 fixed starter cards
     const starterIds = ['it_support', 'card_J'];
     for (const id of starterIds) {
       const instId = window.State.createInstance(id);
@@ -20,8 +20,12 @@ window.Game = (() => {
     // Generate map
     st.map = window.MapEngine.generate();
 
-    window.UI.showScreen('map');
-    window.ScreenMap.render();
+    // Show card pack opening first
+    window.UI.showScreen('cardpack');
+    window.ScreenCardPack.render(() => {
+      window.UI.showScreen('map');
+      window.ScreenMap.render();
+    });
   }
 
   // ── Visit a map node ─────────────────────────────────────────
